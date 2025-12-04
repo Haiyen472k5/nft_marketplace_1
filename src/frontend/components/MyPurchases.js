@@ -51,7 +51,7 @@ export default function MyPurchases({ marketplace, nft, account }) {
               <Col key={idx} className="overflow-hidden">
                 <Card>
                   <Card.Img variant="top" src={item.image} />
-                  <Card.Footer>{ethers.utils.formatEther(item.totalPrice)} ETH</Card.Footer>
+                  <Card.Footer>{ethers.utils.formatEther(item.totalPrice)} BNB</Card.Footer>
                 </Card>
               </Col>
             ))}

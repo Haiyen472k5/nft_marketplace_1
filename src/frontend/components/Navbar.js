@@ -1,10 +1,10 @@
 import {
     Link
 } from "react-router-dom";
-import { Navbar, Nav, Button, Container } from 'react-bootstrap'
+import { Navbar, Nav, Button, Container, Dropdown } from 'react-bootstrap'
 import market from './market.png'
 
-const Navigation = ({ web3Handler, account }) => {
+const Navigation = ({ web3Handler, account, disconnectWallet, changeWallet }) => {
     return (
         <Navbar expand="lg" bg="secondary" variant="dark">
             <Container>
@@ -22,25 +22,38 @@ const Navigation = ({ web3Handler, account }) => {
                     </Nav>
                     <Nav>
                         {account ? (
-                            <Nav.Link
-                                href={`https://etherscan.io/address/${account}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="button nav-button btn-sm mx-4">
-                                <Button variant="outline-light">
+                            <Dropdown align="end">
+                                <Dropdown.Toggle variant="outline-light" id="dropdown-wallet">
                                     {account.slice(0, 5) + '...' + account.slice(38, 42)}
-                                </Button>
+                                </Dropdown.Toggle>
 
-                            </Nav.Link>
+                                <Dropdown.Menu>
+                                    <Dropdown.Item 
+                                        href={`https://etherscan.io/address/${account}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                    >
+                                        View on Etherscan
+                                    </Dropdown.Item>
+                                    <Dropdown.Item onClick={changeWallet}>
+                                        Change Wallet
+                                    </Dropdown.Item>
+                                    <Dropdown.Divider />
+                                    <Dropdown.Item onClick={disconnectWallet}>
+                                        Disconnect
+                                    </Dropdown.Item>
+                                </Dropdown.Menu>
+                            </Dropdown>
                         ) : (
-                            <Button onClick={web3Handler} variant="outline-light">Connect Wallet</Button>
+                            <Button onClick={web3Handler} variant="outline-light">
+                                Connect Wallet
+                            </Button>
                         )}
                     </Nav>
                 </Navbar.Collapse>
             </Container>
         </Navbar>
     )
-
 }
 
 export default Navigation;
