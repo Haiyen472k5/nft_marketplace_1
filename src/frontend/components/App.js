@@ -31,13 +31,11 @@ function App() {
         alert("Please install MetaMask!");
         return;
       }
-      await window.ethereum.request({
-        method: 'wallet_requestPermissions',
-        params: [{
-          eth_accounts: {}
-        }]
+      
+      const accounts = await window.ethereum.request({
+        method: "eth_requestAccounts"
       });
-      const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+
       setAccount(accounts[0])
       // Get provider from Metamask
       const provider = new ethers.providers.Web3Provider(window.ethereum)
@@ -130,8 +128,10 @@ function App() {
           disconnectWallet()
         } else {
           // User switched account
-          setAccount(accounts[0])
-          await web3Handler()
+          setAccount(accounts[0]);
+          const provider = new ethers.providers.Web3Provider(window.ethereum);
+          const signer = provider.getSigner();
+          loadContracts(signer);
         }
       })
     }
@@ -157,7 +157,7 @@ function App() {
           ) : (
             <Routes>
               <Route path="/" element={
-                <Home marketplace={marketplace} nft={nft} />
+                <Home marketplace={marketplace} nft={nft} account={account} />
               } />
               <Route path="/create" element={
                 <Create marketplace={marketplace} nft={nft} />
