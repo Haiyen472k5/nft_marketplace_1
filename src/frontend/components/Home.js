@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react'
 import { ethers } from "ethers"
-import { Row, Col, Card, Button, Badge } from 'react-bootstrap'
+import { Row, Col, Card, Button, Badge, Modal, Form, InputGroup, Container, Spinner } from 'react-bootstrap'
 
 const Home = ({ marketplace, nft, account }) => {
   const [loading, setLoading] = useState(true)
   const [items, setItems] = useState([])
   const [error, setError] = useState(null)
+  const [showOfferModal, setShowOfferModal] = useState(false)
+  const [selectedItem, setSelectedItem] = useState(null)
+  const [offerPrice, setOfferPrice] = useState('')
 
   const loadMarketplaceItems = async () => {
     // Load all unsold items
@@ -33,6 +36,7 @@ const Home = ({ marketplace, nft, account }) => {
           // Add item to items array
           items.push({
             totalPrice,
+            price: item.price,
             itemId: item.itemId,
             seller: item.seller,
             name: metadata.name,
@@ -71,8 +75,6 @@ const Home = ({ marketplace, nft, account }) => {
       if (!confirmed) return;
 
       const tx = await marketplace.purchaseItem(item.itemId, { value: item.totalPrice })
-
-      alert("Transaction submitted! Waiting for confirmation...");
       await tx.wait()
       
       alert("Purchase successful! The NFT is now yours.");
@@ -95,124 +97,259 @@ const Home = ({ marketplace, nft, account }) => {
     }
   }
 
+  const handleMakeOffer = (item) => {
+    if (item.isOwnItem) {
+      alert("You cannot make an offer on you own item!");
+      return;
+    }
+
+    setSelectedItem(item)
+    setOfferPrice('')
+    setShowOfferModal(true)
+
+  }
+
+  const submitOffer = async () => {
+    try {
+      if (!offerPrice || parseFloat(offerPrice) <= 0) {
+        alert("❌ Please enter a valid offer price");
+        return;
+      }
+
+      const offerValue = ethers.utils.parseEther(offerPrice)
+      const listingPriceEther = ethers.utils.formatEther(selectedItem.totalPrice)
+      
+      // Show warning if offer is very low
+      const offerPercent = (parseFloat(offerPrice) / parseFloat(listingPriceEther)) * 100
+      if (offerPercent < 50) {
+        const confirmed = window.confirm(
+          `Your offer is ${offerPercent.toFixed(0)}% of the listing price. Are you sure?`
+        )
+        if (!confirmed) return
+      }
+
+      setShowOfferModal(false)
+      
+      const tx = await marketplace.makeOffer(selectedItem.itemId, { value: offerValue })
+      alert("⏳ Submitting offer...");
+      await tx.wait()
+      alert(`✅ Offer submitted! The seller will be notified.`)
+      
+    } catch (error) {
+      console.error("Error making offer:", error)
+      if (error.code === 4001) {
+        alert("❌ Transaction cancelled")
+      } else if (error.message.includes("insufficient funds")) {
+        alert("❌ Insufficient BNB for this offer")
+      } else {
+        alert("❌ Failed to make offer: " + (error.reason || error.message))
+      }
+    }
+  }
+
   useEffect(() => {
     loadMarketplaceItems()
-  }, [marketplace, nft, account])
+  }, [marketplace.address, nft.address, account])
+
+  const formatAddress = (addr) => {
+    return addr ? `${addr.slice(0, 4)}...${addr.slice(-4)}` : 'Unknown'
+  }
+
   if (loading) return (
-    <main style={{ padding: "1rem 0" }}>
-      <div className="text-center">
-        <div className="spinner-border text-primary" role="status">
-          <span className="visually-hidden">Loading...</span>
-        </div>
-        <p className="mt-2">Loading marketplace...</p>
-      </div>
-    </main>
+    <div className="d-flex flex-column align-items-center justify-content-center" style={{ minHeight: '80vh' }}>
+      <Spinner animation="border" variant="primary" style={{ width: '3rem', height: '3rem' }} />
+      <p className="mt-3 text-muted fw-bold">Loading Marketplace...</p>
+    </div>
   )
 
   if (error) return (
-    <main style={{ padding: "2rem" }}>
-      <div className="alert alert-danger" role="alert">
-        <h4 className="alert-heading">❌ Error</h4>
+    <Container className="py-5">
+      <div className="alert alert-danger shadow-sm border-0" role="alert">
+        <h4 className="alert-heading"><i className="bi bi-exclamation-triangle-fill"></i> Error</h4>
         <p>{error}</p>
         <hr />
-        <button className="btn btn-outline-danger" onClick={() => window.location.reload()}>
+        <Button variant="outline-danger" onClick={() => window.location.reload()}>
           🔄 Reload Page
-        </button>
+        </Button>
       </div>
-    </main>
+    </Container>
   )
 
-return (
-    <div className="flex justify-center">
-      {items.length > 0 ? (
-        <div className="px-5 container">
-          
-          {/* --- SỬA ĐỔI 1: ĐƯA BADGE SANG PHẢI --- */}
-          <div className="d-flex justify-content-end mt-4 mb-2">
-            <Badge bg="info" className="fs-6">
-              {items.length} {items.length === 1 ? 'item' : 'items'} available
-            </Badge>
-          </div>
-          {/* -------------------------------------- */}
-          
-          <Row xs={1} md={2} lg={4} className="g-4 py-3">
+  return (
+    <div className="bg-light min-vh-100 pb-5">
+      {/* Hero Section Nhỏ */}  
+      <div className="d-flex justify-content-end mt-4 mb-2">
+          <Badge bg="info" className="fs-6">
+            {items.length} {items.length === 1 ? 'item' : 'items'} available
+          </Badge>
+      </div>
+      <Container>
+        {items.length > 0 ? (
+          <Row xs={1} md={2} lg={4} className="g-4">
             {items.map((item, idx) => (
-              <Col key={idx} className="overflow-hidden">
+              <Col key={idx}>
                 <Card 
-                  className={`h-100 ${item.isOwnItem ? 'border-warning border-2' : ''}`}
+                  className="h-100 border-0 shadow-sm"
                   style={{ 
-                    transition: 'transform 0.2s',
-                    cursor: item.isOwnItem ? 'default' : 'pointer'
+                    transition: 'all 0.3s ease',
+                    borderRadius: '12px',
+                    overflow: 'hidden',
+                    transform: 'translateZ(0)' // Fix flickering on some browsers
                   }}
-                  // ... (Các sự kiện onMouse giữ nguyên)
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-5px)';
+                    e.currentTarget.style.boxShadow = '0 .5rem 1rem rgba(0,0,0,.15)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = '0 .125rem .25rem rgba(0,0,0,.075)';
+                  }}
                 >
-                  {/* ... (Phần Your Item Badge giữ nguyên) ... */}
+                  {/* Badge Your Item */}
                   {item.isOwnItem && (
-                    <div className="position-absolute top-0 end-0 m-2" style={{ zIndex: 1 }}>
-                      <Badge bg="warning" text="dark">Your Item</Badge>
+                    <div className="position-absolute top-0 end-0 m-3" style={{ zIndex: 2 }}>
+                      <Badge bg="warning" text="dark" className="shadow-sm">
+                        <i className="bi bi-person-circle me-1"></i> You Own This
+                      </Badge>
                     </div>
                   )}
-                  
-                  {/* --- SỬA ĐỔI 2: HIỂN THỊ ẢNH ĐẦY ĐỦ --- */}
-                  <div style={{ height: '250px', overflow: 'hidden', background: '#f8f9fa', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+
+                  {/* Image Container */}
+                  <div className="position-relative" style={{ height: '260px', backgroundColor: '#f3f4f6' }}>
                     <Card.Img 
                       variant="top" 
                       src={item.image} 
                       style={{ 
-                        maxHeight: '100%', 
-                        maxWidth: '100%',
-                        width: 'auto',        // Để chiều rộng tự nhiên
-                        height: 'auto',       // Để chiều cao tự nhiên
-                        objectFit: 'contain', // QUAN TRỌNG: Giúp ảnh không bị cắt
-                        filter: item.isOwnItem ? 'brightness(0.9)' : 'none'
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'contain',
+                        padding: '10px'
                       }} 
                     />
                   </div>
-                  {/* -------------------------------------- */}
                   
-                  <Card.Body>
-                    {/* ... (Phần nội dung bên dưới giữ nguyên) ... */}
-                    <Card.Title className="d-flex justify-content-between align-items-center">
-                      <span>{item.name}</span>
+                  <Card.Body className="d-flex flex-column pt-3 pb-2">
+                    <div className="mb-2">
+                       <small className="text-muted" style={{ fontSize: '0.8rem' }}>
+                         Seller: <span className="text-primary">@{formatAddress(item.seller)}</span>
+                       </small>
+                    </div>
+                    
+                    <Card.Title as="h5" className="fw-bold text-truncate mb-1" title={item.name}>
+                      {item.name}
                     </Card.Title>
-                    <Card.Text className="text-muted">
+                    
+                    <Card.Text className="text-muted small text-truncate mb-3" style={{ minHeight: '20px' }}>
                       {item.description}
                     </Card.Text>
-                    
-                    {item.isOwnItem && (
-                      <div className="alert alert-warning py-2 px-3 mb-0 small" role="alert">
-                        🏷️ This is your listing
+
+                    <div className="mt-auto">
+                      <div className="d-flex justify-content-between align-items-center mb-3 p-2 bg-light rounded-3">
+                        <span className="text-muted small">Price</span>
+                        <span className="fw-bold text-primary fs-5">
+                          {ethers.utils.formatEther(item.totalPrice)} <small className="fs-6 text-dark">BNB</small>
+                        </span>
                       </div>
-                    )}
-                  </Card.Body>
-                  
-                  <Card.Footer>
-                    <div className='d-grid'>
+
                       {item.isOwnItem ? (
-                        <Button variant="outline-secondary" size="lg" disabled style={{ cursor: 'not-allowed' }}>
-                          🚫 Cannot Buy Your Own Item
-                        </Button>
+                        <div className="d-grid">
+                           <Button variant="secondary" size="sm" disabled style={{ opacity: 0.7 }}>
+                             🔒 Owner
+                           </Button>
+                        </div>
                       ) : (
-                        <Button onClick={() => buyMarketItem(item)} variant="primary" size="lg">
-                          💎 Buy for {ethers.utils.formatEther(item.totalPrice)} BNB
-                        </Button>
+                        <Row className="g-2">
+                          <Col xs={8}>
+                            <Button 
+                              onClick={() => buyMarketItem(item)} 
+                              variant="primary" 
+                              className="w-100 fw-bold"
+                              style={{ fontSize: '0.9rem' }}
+                            >
+                              Buy Now
+                            </Button>
+                          </Col>
+                          <Col xs={4}>
+                            <Button 
+                              onClick={() => handleMakeOffer(item)} 
+                              variant="outline-primary"
+                              className="w-100"
+                              style={{ fontSize: '0.9rem' }}
+                              title="Make Offer"
+                            >
+                              Offer
+                            </Button>
+                          </Col>
+                        </Row>
                       )}
                     </div>
-                  </Card.Footer>
+                  </Card.Body>
                 </Card>
               </Col>
             ))}
           </Row>
-        </div>
-      ) : (
-        // ... (Phần loading/empty giữ nguyên) ...
-        <main style={{ padding: "4rem 0", textAlign: 'center' }}>
-           <div className="text-muted">
-             <h2>📦 No Listed NFTs</h2>
-             <p className="mt-3">Be the first to list an NFT for sale!</p>
-           </div>
-        </main>
-      )}
+        ) : (
+          <div className="text-center py-5">
+            <div className="mb-3 text-muted" style={{ fontSize: '4rem' }}>📦</div>
+            <h3 className="fw-bold text-muted">No items listed yet</h3>
+            <p className="text-secondary">Be the first to list an NFT on the marketplace!</p>
+          </div>
+        )}
+      </Container>
+      
+      {/* Offer Modal - Styled */}
+      <Modal show={showOfferModal} onHide={() => setShowOfferModal(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>💰 Make an Offer</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {selectedItem && (
+            <>
+              <div className="text-center mb-3">
+                <img 
+                  src={selectedItem.image} 
+                  alt={selectedItem.name}
+                  style={{ maxHeight: '150px', borderRadius: '8px' }}
+                />
+                <h5 className="mt-2">{selectedItem.name}</h5>
+              </div>
+              
+              <div className="alert alert-info">
+                <small>
+                  <strong>Listing Price:</strong> {ethers.utils.formatEther(selectedItem.totalPrice)} BNB
+                </small>
+              </div>
+
+              <Form.Group>
+                <Form.Label>Your Offer Price</Form.Label>
+                <InputGroup>
+                  <Form.Control
+                    type="number"
+                    step="0.001"
+                    min="0"
+                    placeholder="Enter your offer"
+                    value={offerPrice}
+                    onChange={(e) => setOfferPrice(e.target.value)}
+                    autoFocus
+                  />
+                  <InputGroup.Text>BNB</InputGroup.Text>
+                </InputGroup>
+                <Form.Text className="text-muted">
+                  Your BNB will be locked until the seller accepts or you cancel the offer.
+                </Form.Text>
+              </Form.Group>
+            </>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowOfferModal(false)}>
+            Cancel
+          </Button>
+          <Button variant="primary" onClick={submitOffer}>
+            Submit Offer
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </div>
   );
 }

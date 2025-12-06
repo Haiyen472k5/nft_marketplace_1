@@ -8,6 +8,8 @@ import Home from './Home.js'
 import Create from './Create.js'
 import MyListedItems from './MyListedItems.js'
 import MyPurchases from './MyPurchases.js'
+import MyOffers from './MyOffers.js'
+import MySentOffers from './MySentOffers.js'
 import MarketplaceAbi from '../contractsData/Marketplace.json'
 import MarketplaceAddress from '../contractsData/Marketplace-address.json'
 import NFTAbi from '../contractsData/NFT.json'
@@ -101,7 +103,7 @@ function App() {
 
       window.marketplace = marketplace;
       window.nft = nft;
-      const itemCount = await marketplace.itemCount();
+      
       setLoading(false);
 
 
@@ -156,7 +158,7 @@ function App() {
             </div>
           ) : (
             <Routes>
-              <Route path="/" element={
+              <Route path="/home" element={
                 <Home marketplace={marketplace} nft={nft} account={account} />
               } />
               <Route path="/create" element={
@@ -167,6 +169,12 @@ function App() {
               } />
               <Route path="/my-purchases" element={
                 <MyPurchases marketplace={marketplace} nft={nft} account={account} />
+              } />
+              <Route path="/my-offers" element={
+                <MyOffers marketplace={marketplace} nft={nft} account={account} />
+              } />
+              <Route path="/my-sent-offers" element={
+                <MySentOffers marketplace={marketplace} nft={nft} account={account} />
               } />
             </Routes>
           )}
