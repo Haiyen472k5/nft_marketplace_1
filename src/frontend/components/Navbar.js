@@ -27,9 +27,23 @@ const Navigation = ({ web3Handler, account, disconnectWallet, changeWallet, mark
                     {/* NAVIGATION LINKS */}
                     <Nav className="me-auto ms-lg-4">
                         <Nav.Link as={Link} to="/home" className="mx-2 fw-semibold">Browse Ticket</Nav.Link>
-                        
+
+                        {account && (
+                            <>
+                                <Nav.Link as={Link} to="/my-purchases">
+                                    🎫 My Tickets
+                                </Nav.Link>
+                                <Nav.Link as={Link} to="/my-sent-offers">
+                                    💸 Offers Sent
+                                </Nav.Link>
+                            </>
+                        )}
+
                         {isIssuer && (
                             <>
+                                <Nav.Link as={Link} to="/my-offers">
+                                    📬 Offers Received
+                                </Nav.Link>
                                 <Nav.Link as={Link} to="/create">
                                     Create Ticket
                                     <Badge bg="success" className="ms-2">Issuer</Badge>
@@ -38,20 +52,6 @@ const Navigation = ({ web3Handler, account, disconnectWallet, changeWallet, mark
                                     📋 My Listings
                                 </Nav.Link>
                                 
-                            </>
-                        )}
-
-                        {account && (
-                            <>
-                            <Nav.Link as={Link} to="/my-purchases">
-                                    🎫 My Tickets
-                                </Nav.Link>
-                                <Nav.Link as={Link} to="/my-offers">
-                                    📬 Offers Received
-                                </Nav.Link>
-                                <Nav.Link as={Link} to="/my-sent-offers">
-                                    💸 Offers Sent
-                                </Nav.Link>
                             </>
                         )}
 
