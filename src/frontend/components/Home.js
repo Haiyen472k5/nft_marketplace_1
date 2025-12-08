@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { ethers } from "ethers"
 import { Row, Col, Card, Button, Badge, Modal, Form, InputGroup, Container, Spinner } from 'react-bootstrap'
+import { Link } from "react-router-dom"
 
 const Home = ({ marketplace, nft, account }) => {
   const [loading, setLoading] = useState(true)
@@ -32,15 +33,16 @@ const Home = ({ marketplace, nft, account }) => {
           // get total price of item (item price + fee)
           const totalPrice = await marketplace.getTotalPrice(item.itemId)
           
-          const isOwnItem = account && item.seller.toLowerCase() === account.toLowerCase()
+          const isOwnItem = account && item.currentOwner.toLowerCase() === account.toLowerCase()
           // Add item to items array
           items.push({
             totalPrice,
             price: item.price,
             itemId: item.itemId,
-            seller: item.seller,
+            seller: item.currentOwner,
             name: metadata.name,
             description: metadata.description,
+            itemType: metadata.itemType,
             image: metadata.image,
             isOwnItem
           })
@@ -69,7 +71,7 @@ const Home = ({ marketplace, nft, account }) => {
       }
 
       const confirmed = window.confirm(
-        'Do you want to buy "${item.name}" for ${ethers.utils.formatEther(item.totalPrice)} BNB?'
+        'Do you want to buy "${item.name}" for ${ethers.utils.formatEther(item.totalPrice)} ETH?'
       );
 
       if (!confirmed) return;
@@ -87,7 +89,7 @@ const Home = ({ marketplace, nft, account }) => {
       if (error.code === 4001) {
         alert("❌ Transaction was cancelled")
       } else if (error.message.includes("insufficient funds")) {
-        alert("❌ Insufficient BNB in your wallet")
+        alert("❌ Insufficient ETH in your wallet")
       } else if (error.message.includes("already sold")) {
         alert("❌ This item has already been sold")
         loadMarketplaceItems() // Refresh list
@@ -140,7 +142,7 @@ const Home = ({ marketplace, nft, account }) => {
       if (error.code === 4001) {
         alert("❌ Transaction cancelled")
       } else if (error.message.includes("insufficient funds")) {
-        alert("❌ Insufficient BNB for this offer")
+        alert("❌ Insufficient ETH for this offer")
       } else {
         alert("❌ Failed to make offer: " + (error.reason || error.message))
       }
@@ -168,7 +170,7 @@ const Home = ({ marketplace, nft, account }) => {
         <h4 className="alert-heading"><i className="bi bi-exclamation-triangle-fill"></i> Error</h4>
         <p>{error}</p>
         <hr />
-        <Button variant="outline-danger" onClick={() => window.location.reload()}>
+        <Button as={Link} to="/home" variant="outline-danger" className="mt-3 px-4 rounded-pill">
           🔄 Reload Page
         </Button>
       </div>
@@ -229,25 +231,52 @@ const Home = ({ marketplace, nft, account }) => {
                   </div>
                   
                   <Card.Body className="d-flex flex-column pt-3 pb-2">
-                    <div className="mb-2">
-                       <small className="text-muted" style={{ fontSize: '0.8rem' }}>
-                         Seller: <span className="text-primary">@{formatAddress(item.seller)}</span>
-                       </small>
-                    </div>
-                    
-                    <Card.Title as="h5" className="fw-bold text-truncate mb-1" title={item.name}>
-                      {item.name}
-                    </Card.Title>
-                    
-                    <Card.Text className="text-muted small text-truncate mb-3" style={{ minHeight: '20px' }}>
-                      {item.description}
-                    </Card.Text>
+                    <div className="mb-3">
+                        <div className="d-flex justify-content-between align-items-center mb-2" style={{ borderBottom: '1px dashed #e9ecef', paddingBottom: '4px' }}>
+                          <span className="text-uppercase fw-bold" style={{ color: '#6f42c1', fontSize: '0.7rem', letterSpacing: '0.5px' }}>
+                            Seller
+                          </span>
+                          <small className="text-muted" style={{ fontSize: '0.8rem' }}>
+                            <span className="text-primary">@{formatAddress(item.seller)}</span>
+                          </small>
+                        </div>
 
+                        <div className="d-flex justify-content-between align-items-center mb-2" style={{ borderBottom: '1px dashed #e9ecef', paddingBottom: '4px' }}>
+                          <span className="text-uppercase fw-bold" style={{ color: '#6f42c1', fontSize: '0.7rem', letterSpacing: '0.5px' }}>
+                            Name
+                          </span>
+                          <span className="fw-bold text-dark text-end text-truncate" style={{ maxWidth: '65%', fontSize: '0.9rem' }} title={item.name}>
+                            {item.name}
+                          </span>
+                        </div>
+
+
+                        <div className="d-flex justify-content-between align-items-center mb-2" style={{ borderBottom: '1px dashed #e9ecef', paddingBottom: '4px' }}>
+                          <span className="text-uppercase fw-bold" style={{ color: '#6f42c1', fontSize: '0.7rem', letterSpacing: '0.5px' }}>
+                            Description
+                          </span>
+                          <span className="fw-bold text-muted text-end text-truncate" style={{ maxWidth: '65%', fontSize: '0.85rem' }} title={item.description}>
+                            {item.description}
+                          </span>
+                        </div>
+
+                        {item.itemType && (
+                          <div className="d-flex justify-content-between align-items-center mb-2" style={{ borderBottom: '1px dashed #e9ecef', paddingBottom: '4px' }}>
+                            <span className="text-uppercase fw-bold" style={{ color: '#6f42c1', fontSize: '0.7rem', letterSpacing: '0.5px' }}>
+                              Type
+                            </span>
+                            <Badge bg="info" className="fw-normal" style={{ fontSize: '0.75rem', opacity: 0.9 }}>
+                              {item.itemType}
+                            </Badge>
+                          </div>
+                        )}
+                    </div>
+                  
                     <div className="mt-auto">
                       <div className="d-flex justify-content-between align-items-center mb-3 p-2 bg-light rounded-3">
                         <span className="text-muted small">Price</span>
                         <span className="fw-bold text-primary fs-5">
-                          {ethers.utils.formatEther(item.totalPrice)} <small className="fs-6 text-dark">BNB</small>
+                          {ethers.utils.formatEther(item.totalPrice)} <small className="fs-6 text-dark">ETH</small>
                         </span>
                       </div>
 
@@ -316,7 +345,7 @@ const Home = ({ marketplace, nft, account }) => {
               
               <div className="alert alert-info">
                 <small>
-                  <strong>Listing Price:</strong> {ethers.utils.formatEther(selectedItem.totalPrice)} BNB
+                  <strong>Listing Price:</strong> {ethers.utils.formatEther(selectedItem.totalPrice)} ETH
                 </small>
               </div>
 
@@ -332,10 +361,10 @@ const Home = ({ marketplace, nft, account }) => {
                     onChange={(e) => setOfferPrice(e.target.value)}
                     autoFocus
                   />
-                  <InputGroup.Text>BNB</InputGroup.Text>
+                  <InputGroup.Text>ETH</InputGroup.Text>
                 </InputGroup>
                 <Form.Text className="text-muted">
-                  Your BNB will be locked until the seller accepts or you cancel the offer.
+                  Your ETH will be locked until the seller accepts or you cancel the offer.
                 </Form.Text>
               </Form.Group>
             </>

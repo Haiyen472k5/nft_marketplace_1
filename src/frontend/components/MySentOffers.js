@@ -23,29 +23,33 @@ export default function MySentOffers({ marketplace, nft, account }) {
         const offer = await marketplace.getOffer(i)
         
         // Only get offers made by current user that are still active
-        if (offer.buyer.toLowerCase() === account.toLowerCase() && 
-            !offer.accepted && !offer.cancelled) {
+        if (offer.buyer.toLowerCase() === account.toLowerCase()) {
           
           // Get item details
           const item = await marketplace.items(offer.itemId)
-          const uri = await nft.tokenURI(item.tokenId)
-          const response = await fetch(uri)
-          const metadata = await response.json()
-          const listingPrice = await marketplace.getTotalPrice(offer.itemId)
 
-          sentOffers.push({
-            offerId: offer.offerId.toNumber(),
-            itemId: offer.itemId.toNumber(),
-            name: metadata.name,
-            description: metadata.description,
-            image: metadata.image,
-            offerPrice: offer.price,
-            offerPriceFormatted: ethers.utils.formatEther(offer.price),
-            listingPrice: listingPrice,
-            listingPriceFormatted: ethers.utils.formatEther(listingPrice),
-            seller: item.seller,
-            sold: item.sold
-          })
+          const isActive = !offer.accepted && !offer.cancelled;
+          const isSoldOut = offer.cancelled && item.sold;
+          if (isActive || isSoldOut) {
+            const uri = await nft.tokenURI(item.tokenId)
+            const response = await fetch(uri)
+            const metadata = await response.json()
+            const listingPrice = await marketplace.getTotalPrice(offer.itemId)
+
+            sentOffers.push({
+              offerId: offer.offerId.toNumber(),
+              itemId: offer.itemId.toNumber(),
+              name: metadata.name,
+              description: metadata.description,
+              image: metadata.image,
+              offerPrice: offer.price,
+              offerPriceFormatted: ethers.utils.formatEther(offer.price),
+              listingPrice: listingPrice,
+              listingPriceFormatted: ethers.utils.formatEther(listingPrice),
+              seller: item.currentOwner,
+              sold: item.sold
+            })
+          }
         }
       }
 
@@ -61,7 +65,7 @@ export default function MySentOffers({ marketplace, nft, account }) {
   const cancelOffer = async (offerId, itemName, offerPrice) => {
     try {
       const confirmed = window.confirm(
-        `Cancel your offer of ${offerPrice} BNB for "${itemName}"?\n\nYour BNB will be refunded immediately.`
+        `Cancel your offer of ${offerPrice} ETH for "${itemName}"?\n\nYour ETH will be refunded immediately.`
       )
 
       if (!confirmed) return
@@ -69,7 +73,7 @@ export default function MySentOffers({ marketplace, nft, account }) {
       const tx = await marketplace.cancelOffer(offerId)
       alert("⏳ Cancelling offer...")
       await tx.wait()
-      alert("✅ Offer cancelled! Your BNB has been refunded.")
+      alert("✅ Offer cancelled! Your ETH has been refunded.")
       
       // Reload data
       loadMySentOffers()
@@ -185,7 +189,7 @@ return (
                         <div className="price-box">
                           <div className="offer-label">Listing Price</div>
                           <div className="price-value text-muted">
-                            {Number(offer.listingPriceFormatted).toFixed(3)} <small>BNB</small>
+                            {Number(offer.listingPriceFormatted).toFixed(3)} <small>ETH</small>
                           </div>
                         </div>
                       </div>
@@ -193,7 +197,7 @@ return (
                         <div className="price-box border border-primary border-opacity-25 bg-primary bg-opacity-10">
                           <div className="offer-label text-primary">Your Offer</div>
                           <div className="price-value highlight">
-                            {Number(offer.offerPriceFormatted).toFixed(3)} <small>BNB</small>
+                            {Number(offer.offerPriceFormatted).toFixed(3)} <small>ETH</small>
                           </div>
                         </div>
                       </div>
@@ -214,7 +218,7 @@ return (
                             ❌ Cancel Offer
                           </Button>
                           <small className="text-center text-muted fst-italic" style={{fontSize: '0.75rem'}}>
-                            Locked: {offer.offerPriceFormatted} BNB
+                            Locked: {offer.offerPriceFormatted} ETH
                           </small>
                         </div>
                       )}

@@ -18,7 +18,7 @@ export default function MyListedItems({ marketplace, nft, account }) {
         const i = await marketplace.items(indx)
         
         // Chỉ lấy item của người dùng hiện tại
-        if (i.seller.toLowerCase() === account.toLowerCase()) {
+        if (i.issuer.toLowerCase() === account.toLowerCase()) {
           const uri = await nft.tokenURI(i.tokenId)
           const response = await fetch(uri)
           const metadata = await response.json()
@@ -30,6 +30,7 @@ export default function MyListedItems({ marketplace, nft, account }) {
             itemId: i.itemId,
             name: metadata.name,
             description: metadata.description,
+            type: metadata.itemType,
             image: metadata.image,
             sold: i.sold // Lưu trạng thái sold để hiển thị Badge
           }
@@ -117,23 +118,48 @@ export default function MyListedItems({ marketplace, nft, account }) {
                     />
                 </div>
 
-                <Card.Body>
-                    <Card.Title as="h6" className="fw-bold text-truncate">{item.name}</Card.Title>
-                    <Card.Text className="text-muted small text-truncate">
-                      {item.description}
-                    </Card.Text>
-                </Card.Body>
-                
-                <Card.Footer className="bg-white border-top-0 pt-0 pb-3">
-                    <div className="d-grid">
-                        <div className="d-flex justify-content-between align-items-center">
-                             <span className="text-muted small">Listed Price:</span>
-                             <span className="fw-bold text-primary">
-                                {ethers.utils.formatEther(item.totalPrice)} BNB
-                             </span>
+                <Card.Body className="d-flex flex-column pt-3 pb-2">
+                    <div className="mb-3">  
+                        <div className="d-flex justify-content-between align-items-center mb-2" style={{ borderBottom: '1px dashed #e9ecef', paddingBottom: '4px' }}>
+                          <span className="text-uppercase fw-bold" style={{ color: '#6f42c1', fontSize: '0.7rem', letterSpacing: '0.5px' }}>
+                            Name
+                          </span>
+                          <span className="fw-bold text-dark text-end text-truncate" style={{ maxWidth: '65%', fontSize: '0.9rem' }} title={item.name}>
+                            {item.name}
+                          </span>
                         </div>
+
+
+                        <div className="d-flex justify-content-between align-items-center mb-2" style={{ borderBottom: '1px dashed #e9ecef', paddingBottom: '4px' }}>
+                          <span className="text-uppercase fw-bold" style={{ color: '#6f42c1', fontSize: '0.7rem', letterSpacing: '0.5px' }}>
+                            Description
+                          </span>
+                          <span className="fw-bold text-muted text-end text-truncate" style={{ maxWidth: '65%', fontSize: '0.85rem' }} title={item.description}>
+                            {item.description}
+                          </span>
+                        </div>
+
+                        {item.itemType && (
+                          <div className="d-flex justify-content-between align-items-center mb-2" style={{ borderBottom: '1px dashed #e9ecef', paddingBottom: '4px' }}>
+                            <span className="text-uppercase fw-bold" style={{ color: '#6f42c1', fontSize: '0.7rem', letterSpacing: '0.5px' }}>
+                              Type
+                            </span>
+                            <Badge bg="info" className="fw-normal" style={{ fontSize: '0.75rem', opacity: 0.9 }}>
+                              {item.type}
+                            </Badge>
+                          </div>
+                        )}
                     </div>
-                </Card.Footer>
+                  
+                    <div className="mt-auto">
+                      <div className="d-flex justify-content-between align-items-center mb-3 p-2 bg-light rounded-3">
+                        <span className="text-muted small">Price</span>
+                        <span className="fw-bold text-primary fs-5">
+                          {ethers.utils.formatEther(item.totalPrice)} <small className="fs-6 text-dark">ETH</small>
+                        </span>
+                      </div>
+                    </div>
+                </Card.Body>
               </Card>
             </Col>
           ))}
@@ -181,7 +207,7 @@ export default function MyListedItems({ marketplace, nft, account }) {
                        <div className="d-flex justify-content-between align-items-center small">
                           <span className="text-dark fw-bold">Earned:</span>
                           <span className="fw-bold text-success">
-                            + {ethers.utils.formatEther(item.price)} BNB
+                            + {ethers.utils.formatEther(item.price)} ETH
                           </span>
                        </div>
                        <div className="text-center text-muted" style={{fontSize: '0.7rem'}}>

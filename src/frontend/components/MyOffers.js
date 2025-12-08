@@ -22,7 +22,7 @@ export default function MyOffers({ marketplace, nft, account }) {
       for (let i = 1; i <= itemCount; i++) {
         const item = await marketplace.items(i)
         
-        if (item.seller.toLowerCase() === account.toLowerCase() && !item.sold) {
+        if (item.currentOwner.toLowerCase() === account.toLowerCase() && !item.sold) {
           // Get metadata
           const uri = await nft.tokenURI(item.tokenId)
           const response = await fetch(uri)
@@ -74,7 +74,7 @@ export default function MyOffers({ marketplace, nft, account }) {
   const acceptOffer = async (offerId, itemName, offerPrice) => {
     try {
       const confirmed = window.confirm(
-        `Accept offer of ${offerPrice} BNB for "${itemName}"?\n\nThe NFT will be transferred to the buyer immediately.`
+        `Accept offer of ${offerPrice} ETH for "${itemName}"?\n\nThe NFT will be transferred to the buyer immediately.`
       )
 
       if (!confirmed) return
@@ -169,7 +169,7 @@ return (
                   <div className="price-box mb-3">
                     <div className="offer-label">Your Listing Price</div>
                     <div className="price-value text-muted">
-                        {Number(listing.listingPriceFormatted).toFixed(3)} <small>BNB</small>
+                        {Number(listing.listingPriceFormatted).toFixed(3)} <small>ETH</small>
                     </div>
                   </div>
 
@@ -196,7 +196,7 @@ return (
                           <div className="d-flex justify-content-between align-items-center mb-2">
                             <div>
                                 <div className="fw-bold text-primary fs-5">
-                                    {Number(offer.priceFormatted).toFixed(3)} BNB
+                                    {Number(offer.priceFormatted).toFixed(3)} ETH
                                 </div>
                                 <div className="small text-muted font-monospace">
                                     From: {offer.buyer.slice(0, 4)}...{offer.buyer.slice(-4)}

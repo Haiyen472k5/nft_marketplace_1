@@ -1,10 +1,12 @@
-import {
-    Link
-} from "react-router-dom";
-import { Navbar, Nav, Button, Container, Dropdown } from 'react-bootstrap'
+import { useState, useEffect } from 'react'
+import { Link } from "react-router-dom"
+import { Navbar, Nav, Button, Container, Dropdown, Badge } from 'react-bootstrap'
+import { ethers } from "ethers"
 import market from './market.png'
 
-const Navigation = ({ web3Handler, account, disconnectWallet, changeWallet }) => {
+const Navigation = ({ web3Handler, account, disconnectWallet, changeWallet, marketplace, isAdmin, isIssuer }) => {
+
+
     return (
         <Navbar expand="lg" bg="dark" variant="dark" className="py-3 shadow-sm sticky-top">
             <Container>
@@ -26,16 +28,42 @@ const Navigation = ({ web3Handler, account, disconnectWallet, changeWallet }) =>
                 <Navbar.Collapse id="responsive-navbar-nav">
                     {/* NAVIGATION LINKS */}
                     <Nav className="me-auto ms-lg-4">
-                        <Nav.Link as={Link} to="/home" className="mx-2 fw-semibold">Home</Nav.Link>
-                        <Nav.Link as={Link} to="/create" className="mx-2 fw-semibold">Create</Nav.Link>
-                        <Nav.Link as={Link} to="/my-listed-items" className="mx-2">My Listed Items</Nav.Link>
-                        <Nav.Link as={Link} to="/my-purchases" className="mx-2">My Purchases</Nav.Link>
+                        <Nav.Link as={Link} to="/home" className="mx-2 fw-semibold">Browse Ticket</Nav.Link>
                         
-                        {/* Nhóm các mục Offers lại gần nhau hoặc tách biệt nhẹ */}
-                        <div className="d-lg-flex border-start border-secondary ms-lg-2 ps-lg-2">
-                             <Nav.Link as={Link} to="/my-offers" className="mx-2 text-info">Offers Received</Nav.Link>
-                             <Nav.Link as={Link} to="/my-sent-offers" className="mx-2 text-warning">Offers Sent</Nav.Link>
-                        </div>
+                        {isIssuer && (
+                            <>
+                                <Nav.Link as={Link} to="/create">
+                                    Create Ticket
+                                    <Badge bg="success" className="ms-2">Issuer</Badge>
+                                </Nav.Link>
+                                <Nav.Link as={Link} to="/my-listed-items">
+                                    📋 My Listings
+                                </Nav.Link>
+                                
+                            </>
+                        )}
+
+                        {account && (
+                            <>
+                            <Nav.Link as={Link} to="/my-purchases">
+                                    🎫 My Tickets
+                                </Nav.Link>
+                                <Nav.Link as={Link} to="/my-offers">
+                                    📬 Offers Received
+                                </Nav.Link>
+                                <Nav.Link as={Link} to="/my-sent-offers">
+                                    💸 Offers Sent
+                                </Nav.Link>
+                            </>
+                        )}
+
+                        {isAdmin && (
+                            <Nav.Link as={Link} to="/admin">
+                                Admin Dashboard
+                                <Badge bg="danger" className="ms-2">Admin</Badge>
+                            </Nav.Link>
+                        )}
+                        
                     </Nav>
 
                     {/* WALLET CONNECTION */}
@@ -55,6 +83,8 @@ const Navigation = ({ web3Handler, account, disconnectWallet, changeWallet }) =>
                                     <div className="px-3 py-2 text-muted small">
                                         Wallet Options
                                     </div>
+
+
                                     <Dropdown.Item 
                                         href={`https://etherscan.io/address/${account}`}
                                         target="_blank"
@@ -63,9 +93,22 @@ const Navigation = ({ web3Handler, account, disconnectWallet, changeWallet }) =>
                                     >
                                         <i className="bi bi-box-arrow-up-right me-2"></i> View on Etherscan
                                     </Dropdown.Item>
+
+                                    <Dropdown.Divider />
+                                    <Dropdown.Item disabled>
+                                        <small className="text-muted">Your Role:</small>
+                                        <div>
+                                            {isAdmin && <Badge bg="danger">Administrator</Badge>}
+                                            {isIssuer && <Badge bg="success">Authorized Issuer</Badge>}
+                                            {!isAdmin && !isIssuer && <Badge bg="info">Buyer</Badge>}
+                                        </div>
+                                    </Dropdown.Item>
+
+                                    <Dropdown.Divider />
                                     <Dropdown.Item onClick={changeWallet}>
                                         <i className="bi bi-wallet2 me-2"></i> Change Wallet
                                     </Dropdown.Item>
+                                    
                                     <Dropdown.Divider />
                                     <Dropdown.Item onClick={disconnectWallet} className="text-danger">
                                         <i className="bi bi-box-arrow-right me-2"></i> Disconnect

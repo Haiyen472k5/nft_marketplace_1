@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ethers } from "ethers"
-import { Row, Col, Form, Button, Card, Container, InputGroup, Spinner, Image } from 'react-bootstrap'
+import { Row, Col, Form, Button, Card, Container, Badge, InputGroup, Spinner, Image } from 'react-bootstrap'
 
 // 🔥 THAY TOKEN NÀY BẰNG JWT TOKEN CỦA PINATA (GIỮ NGUYÊN TỪ FILE GỐC)
 const PINATA_JWT = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySW5mb3JtYXRpb24iOnsiaWQiOiJkYzY0MmFkOC04NDRhLTQzYmYtYWQyOC1mNTFlMzU5MTA2MjEiLCJlbWFpbCI6ImdwdGNsYXVkZTY4QGdtYWlsLmNvbSIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJwaW5fcG9saWN5Ijp7InJlZ2lvbnMiOlt7ImRlc2lyZWRSZXBsaWNhdGlvbkNvdW50IjoxLCJpZCI6IkZSQTEifSx7ImRlc2lyZWRSZXBsaWNhdGlvbkNvdW50IjoxLCJpZCI6Ik5ZQzEifV0sInZlcnNpb24iOjF9LCJtZmFfZW5hYmxlZCI6ZmFsc2UsInN0YXR1cyI6IkFDVElWRSJ9LCJhdXRoZW50aWNhdGlvblR5cGUiOiJzY29wZWRLZXkiLCJzY29wZWRLZXlLZXkiOiIwM2I5ZmQwOWUwNDRhOWVkYmJhMyIsInNjb3BlZEtleVNlY3JldCI6IjU0OGNiYzFmNDg2NjFkODVlYWMwYTgzMzM2YmUxOTcyOWEyMjczNjFiY2RhNjhiODMxYzVkOTdmODEzYzkyZWEiLCJleHAiOjE3OTYzNjA2NzB9.deCZcO3aD371Yr-3LBKbkm-kJ1uiDw6uwk6_hGM_tjo";
@@ -45,11 +45,63 @@ const uploadMetadataToPinata = async (metadata) => {
   return `https://gateway.pinata.cloud/ipfs/${data.IpfsHash}`;
 };
 
-const Create = ({ marketplace, nft }) => {
+const Create = ({ marketplace, nft, account }) => {
+  const [isIssuer, setIsIssuer] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [issuerInfo, setIssuerInfo] = useState(null)
+
   const [image, setImage] = useState('')
   const [price, setPrice] = useState(null)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
+  const [itemType, setItemType] = useState('0') // 0=TICKET, 1=VOUCHER, 2=MEMBERSHIP
+  const [expiryDate, setExpiryDate] = useState('')
+  const [maxResales, setMaxResales] = useState('2')
+
+  const ISSUER_ROLE = ethers.utils.id("ISSUER_ROLE")
+
+  useEffect(() => {
+    checkIssuerRole()
+  }, [marketplace, account])
+
+  const checkIssuerRole = async () => {
+    if (!marketplace || !marketplace.address || !account) {
+      setIsIssuer(false)
+      setLoading(false)
+      return
+    }
+
+    try {
+      // Check if has issuer role
+      const hasIssuer = await marketplace.hasRole(ISSUER_ROLE, account)
+      
+      if (hasIssuer) {
+        // Get issuer info
+        const info = await marketplace.getIssuerInfo(account)
+        
+        if (info.isActive) {
+          setIsIssuer(true)
+          setIssuerInfo({
+            name: info.name,
+            description: info.description,
+            totalItemsCreated: info.totalItemsCreated.toNumber(),
+            totalSales: info.totalSales.toNumber()
+          })
+        } else {
+          setIsIssuer(false)
+        }
+      } else {
+        setIsIssuer(false)
+      }
+      
+      setLoading(false)
+    } catch (error) {
+      console.error("Error checking issuer role:", error)
+      setIsIssuer(false)
+      setLoading(false)
+    }
+  }
+
   
   // State UI mới để tăng trải nghiệm người dùng
   const [uploadingImg, setUploadingImg] = useState(false)
@@ -81,7 +133,15 @@ const Create = ({ marketplace, nft }) => {
       setCreatingNft(true) // Bắt đầu loading button
 
       // Build metadata object
-      const metadata = { image, price, name, description }
+      const metadata = { image, 
+                        price, 
+                        name, 
+                        description, 
+                        itemType: ['TICKET', 'VOUCHER', 'MEMBERSHIP'][itemType],
+                        expiryDate: expiryDate || 'No expiry',
+                        maxResales,
+                        issuer: issuerInfo?.name || account
+                      }
 
       // Upload metadata.json → IPFS (Pinata)
       const metadataURL = await uploadMetadataToPinata(metadata)
@@ -100,9 +160,10 @@ const Create = ({ marketplace, nft }) => {
 
       // Convert ETH price to wei
       const listingPrice = ethers.utils.parseEther(price.toString())
+      const expiryTimestamp = expiryDate ? Math.floor(new Date(expiryDate).getTime() / 1000) : 0
 
       // List on marketplace
-      const txList = await marketplace.makeItem(nft.address, id, listingPrice)
+      const txList = await marketplace.createItem(nft.address, id, listingPrice, parseInt(itemType), expiryTimestamp, parseInt(maxResales))
       await txList.wait()
 
       setCreatingNft(false)
@@ -113,6 +174,9 @@ const Create = ({ marketplace, nft }) => {
       setPrice('')
       setDescription('')
       setImage('')
+      setItemType('0')
+      setExpiryDate('')
+      setMaxResales('2')
       
     } catch (error) {
       console.log("Create NFT error:", error)
@@ -121,171 +185,182 @@ const Create = ({ marketplace, nft }) => {
     }
   }
 
-  return (
-    <div className="bg-light min-vh-100 py-5">
-      <Container>
-        <div className="mb-4">
-          <h2 className="fw-bold">Create New Item</h2>
-          <p className="text-muted">Upload your image, set a price, and list it for sale.</p>
-        </div>
+  if (!isIssuer) return (
+    <div className="container py-5 text-center">
+      <div className="alert alert-warning shadow-sm border-0">
+        <h2 className="fw-bold"><i className="bi bi-lock-fill"></i> Access Denied</h2>
+        <p className="lead">Only authorized Issuers can create new Tickets/Vouchers.</p>
+        <p>Please contact the Administrator to become an Issuer.</p>
+      </div>
+    </div>
+  )
 
-        <Row className="g-5">
-          {/* CỘT TRÁI: FORM NHẬP LIỆU */}
-          <Col lg={7}>
-            <div className="bg-white p-4 rounded-3 shadow-sm border">
-              <Form.Group className="mb-4">
-                <Form.Label className="fw-bold">Upload File</Form.Label>
-                <div className="border-2 border-dashed rounded-3 p-4 text-center" style={{ borderColor: '#dee2e6', borderStyle: 'dashed', backgroundColor: '#f8f9fa' }}>
-                  <Form.Control
-                    type="file"
-                    required
-                    name="file"
-                    onChange={uploadToIPFS}
-                    accept="image/*"
-                    className="mb-2"
-                  />
-                  <Form.Text className="text-muted">
-                    Supports JPG, PNG, GIF. Max size: 10MB.
-                  </Form.Text>
-                  {uploadingImg && (
-                    <div className="mt-3">
-                      <Spinner animation="border" size="sm" variant="primary" /> <span className="text-primary ms-2">Uploading to IPFS...</span>
+    return (
+    <Container className="mt-5">
+      <Row>
+        <div className="col-lg-8 mx-auto">
+          {/* Issuer Info Card */}
+          {issuerInfo && (
+            <Card className="mb-4 border-success">
+              <Card.Body>
+                <div className="d-flex justify-content-between align-items-center">
+                  <div>
+                    <h5 className="mb-1">
+                      ✅ Authorized Issuer
+                      <Badge bg="success" className="ms-2">Verified</Badge>
+                    </h5>
+                    <p className="text-muted mb-1"><strong>{issuerInfo.name}</strong></p>
+                    <small className="text-muted">{issuerInfo.description}</small>
+                  </div>
+                  <div className="text-end">
+                    <div className="mb-1">
+                      <small className="text-muted">Items Created:</small>
+                      <div className="fw-bold">{issuerInfo.totalItemsCreated}</div>
                     </div>
-                  )}
+                    <div>
+                      <small className="text-muted">Total Sales:</small>
+                      <div className="fw-bold">{issuerInfo.totalSales}</div>
+                    </div>
+                  </div>
                 </div>
-              </Form.Group>
+              </Card.Body>
+            </Card>
+          )}
 
-              <Form.Group className="mb-3">
-                <Form.Label className="fw-bold">Name</Form.Label>
-                <Form.Control 
-                  onChange={(e) => setName(e.target.value)} 
-                  value={name}
-                  size="lg" 
-                  required 
-                  type="text" 
-                  placeholder="e.g. 'Cosmic Monkey #001'" 
-                />
-              </Form.Group>
-
-              <Form.Group className="mb-3">
-                <Form.Label className="fw-bold">Description</Form.Label>
-                <Form.Control 
-                  onChange={(e) => setDescription(e.target.value)} 
-                  value={description}
-                  size="lg" 
-                  required 
-                  as="textarea" 
-                  rows={4}
-                  placeholder="Provide a detailed description of your item" 
-                />
-              </Form.Group>
-
-              <Form.Group className="mb-4">
-                <Form.Label className="fw-bold">Price</Form.Label>
-                <InputGroup size="lg">
-                  <Form.Control 
-                    onChange={(e) => setPrice(e.target.value)} 
-                    value={price || ''}
-                    required 
-                    type="number" 
-                    placeholder="0.00" 
-                    min="0"
-                  />
-                  <InputGroup.Text className="fw-bold">ETH</InputGroup.Text>
-                </InputGroup>
-              </Form.Group>
-
-              <div className="d-grid">
-                <Button 
-                  onClick={createNFT} 
-                  variant="primary" 
-                  size="lg" 
-                  disabled={!image || !price || !name || !description || creatingNft}
-                  style={{ height: '50px' }}
-                >
-                  {creatingNft ? (
-                     <>
-                       <Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" className="me-2" />
-                       Minting & Listing...
-                     </>
-                  ) : (
-                    "Create & List NFT"
-                  )}
-                </Button>
-              </div>
-            </div>
-          </Col>
-
-          {/* CỘT PHẢI: LIVE PREVIEW */}
-          <Col lg={5}>
-            <div className="sticky-top" style={{ top: '100px' }}>
-              <h5 className="text-muted mb-3">Preview</h5>
-              <Card className="shadow border-0 rounded-3 overflow-hidden">
-                 {/* Khung ảnh Preview */}
-                <div style={{ height: '350px', backgroundColor: '#e9ecef', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
-                  {image ? (
-                    <Card.Img 
-                      variant="top" 
-                      src={image} 
-                      style={{ 
-                        width: '100%', 
-                        height: '100%', 
-                        objectFit: 'contain',
-                        padding: '10px'
-                      }} 
+          <Card>
+            <Card.Header>
+              <h4 className="mb-0">🎫 Create Ticket/Voucher</h4>
+            </Card.Header>
+            <Card.Body>
+              <Form>
+                <Row className="g-4">
+                  {/* Image Upload */}
+                  <Form.Group>
+                    <Form.Label>Image/Photo *</Form.Label>
+                    <Form.Control
+                      type="file"
+                      required
+                      name="file"
+                      onChange={uploadToIPFS}
                     />
-                  ) : (
-                    <div className="text-center text-muted">
-                      <i className="bi bi-image" style={{ fontSize: '3rem', opacity: 0.5 }}></i>
-                      <p className="mt-2">Image Preview</p>
-                    </div>
-                  )}
-                </div>
+                    <Form.Text className="text-muted">
+                      Upload ticket design, QR code, or voucher image
+                    </Form.Text>
+                    {image && (
+                      <div className="mt-2">
+                        <img src={image} alt="Preview" style={{maxWidth: '200px', borderRadius: '8px'}} />
+                      </div>
+                    )}
+                  </Form.Group>
 
-                <Card.Body className="p-4">
-                  <div className="d-flex justify-content-between align-items-start">
-                    <div>
-                       <small className="text-muted text-uppercase fw-bold" style={{ fontSize: '0.75rem' }}>
-                         NFT Marketplace
-                       </small>
-                       <Card.Title as="h4" className="fw-bold mt-1 mb-0">
-                         {name || "Item Name"}
-                       </Card.Title>
-                    </div>
-                  </div>
-                  
-                  <div className="mt-3">
-                     <p className="text-muted small mb-0">Description</p>
-                     <p className="text-dark">
-                       {description ? (description.length > 100 ? description.substring(0, 100) + '...' : description) : "Description will appear here..."}
-                     </p>
-                  </div>
+                  {/* Name */}
+                  <Form.Group>
+                    <Form.Label>Title *</Form.Label>
+                    <Form.Control 
+                      onChange={(e) => setName(e.target.value)} 
+                      size="lg" 
+                      required 
+                      type="text" 
+                      placeholder="e.g., Taylor Swift Concert Ticket" 
+                      value={name}
+                    />
+                  </Form.Group>
 
-                  <hr className="my-3" />
-                  
-                  <div className="d-flex justify-content-between align-items-center">
-                    <div>
-                      <small className="text-muted d-block">Price</small>
-                      <span className="fs-5 fw-bold text-primary">
-                        {price || "0.00"} ETH
-                      </span>
-                    </div>
-                    <Button variant="outline-primary" size="sm" disabled>
-                      Buy Now
+                  {/* Description */}
+                  <Form.Group>
+                    <Form.Label>Description *</Form.Label>
+                    <Form.Control 
+                      onChange={(e) => setDescription(e.target.value)} 
+                      size="lg" 
+                      required 
+                      as="textarea" 
+                      rows={3}
+                      placeholder="Describe the ticket/voucher details, terms, and conditions" 
+                      value={description}
+                    />
+                  </Form.Group>
+
+                  {/* Type */}
+                  <Form.Group>
+                    <Form.Label>Type *</Form.Label>
+                    <Form.Select 
+                      size="lg"
+                      value={itemType}
+                      onChange={(e) => setItemType(e.target.value)}
+                    >
+                      <option value="0">🎫 Ticket (Event-based)</option>
+                      <option value="1">🎁 Voucher (Redeemable)</option>
+                      <option value="2">👑 Membership (Long-term)</option>
+                    </Form.Select>
+                  </Form.Group>
+
+                  {/* Price */}
+                  <Form.Group>
+                    <Form.Label>Price (ETH) *</Form.Label>
+                    <Form.Control 
+                      onChange={(e) => setPrice(e.target.value)} 
+                      size="lg" 
+                      required 
+                      type="number" 
+                      step="0.001"
+                      min="0"
+                      placeholder="0.5" 
+                      value={price || ''}
+                    />
+                  </Form.Group>
+
+                  {/* Expiry Date */}
+                  <Form.Group>
+                    <Form.Label>Expiry Date (Optional)</Form.Label>
+                    <Form.Control 
+                      onChange={(e) => setExpiryDate(e.target.value)} 
+                      size="lg"
+                      type="datetime-local"
+                      value={expiryDate}
+                    />
+                    <Form.Text className="text-muted">
+                      Leave empty for no expiry. For events, set to event date/time.
+                    </Form.Text>
+                  </Form.Group>
+
+                  {/* Max Resales */}
+                  <Form.Group>
+                    <Form.Label>Maximum Resales Allowed</Form.Label>
+                    <Form.Select 
+                      size="lg"
+                      value={maxResales}
+                      onChange={(e) => setMaxResales(e.target.value)}
+                    >
+                      <option value="0">0 - Non-transferable</option>
+                      <option value="1">1 - Can resell once</option>
+                      <option value="2">2 - Can resell twice</option>
+                      <option value="3">3 - Can resell 3 times</option>
+                      <option value="5">5 - Can resell 5 times</option>
+                      <option value="999">Unlimited</option>
+                    </Form.Select>
+                    <Form.Text className="text-muted">
+                      Control how many times this can be resold to prevent scalping
+                    </Form.Text>
+                  </Form.Group>
+
+                  {/* Submit Button */}
+                  <div className="d-grid px-0">
+                    <Button 
+                      onClick={createNFT} 
+                      variant="success" 
+                      size="lg"
+                      disabled={!image || !price || !name || !description}
+                    >
+                      ✨ Create & List on Marketplace
                     </Button>
                   </div>
-                </Card.Body>
-              </Card>
-              
-              <div className="alert alert-info mt-4 small border-0 bg-white shadow-sm">
-                <i className="bi bi-info-circle-fill me-2"></i>
-                <strong>Note:</strong> Transaction fee (Gas) will be applied when creating the NFT.
-              </div>
-            </div>
-          </Col>
-        </Row>
-      </Container>
-    </div>
+                </Row>
+              </Form>
+            </Card.Body>
+          </Card>
+        </div>
+      </Row>
+    </Container>
   );
 }
 

@@ -11,7 +11,7 @@ export default function MyPurchases({ marketplace, nft, account }) {
   const loadPurchasedItems = async () => {
     // Fetch purchased items from marketplace by quering Offered events with the buyer set as the user
     // Lọc sự kiện 'Bought' để tìm những item mà người mua == account hiện tại
-    const filter =  marketplace.filters.Bought(null,null,null,null,null,account)
+    const filter =  marketplace.filters.ItemSold(null,null,null,null,null,account)
     const results = await marketplace.queryFilter(filter)
     
     //Fetch metadata of each nft and add that to listedItem object.
@@ -32,6 +32,7 @@ export default function MyPurchases({ marketplace, nft, account }) {
         itemId: i.itemId,
         name: metadata.name,
         description: metadata.description,
+        type: metadata.itemType,
         image: metadata.image
       }
       return purchasedItem
@@ -108,21 +109,47 @@ export default function MyPurchases({ marketplace, nft, account }) {
                     />
                   </div>
                   
-                  <Card.Body>
-                      <Card.Title as="h5" className="fw-bold text-truncate">{item.name}</Card.Title>
-                      <Card.Text className="text-muted small text-truncate" style={{ minHeight: '20px' }}>
-                          {item.description}
-                      </Card.Text>
-                      
-                      <div className="mt-3 pt-3 border-top">
-                          <small className="text-muted text-uppercase fw-bold" style={{fontSize: '0.7rem'}}>Purchased For</small>
-                          <div className="d-flex align-items-center mt-1">
-                              <span className="fs-5 fw-bold text-dark me-1">
-                                {ethers.utils.formatEther(item.totalPrice)}
-                              </span>
-                              <span className="text-primary fw-bold small">BNB</span>
+                  <Card.Body className="d-flex flex-column pt-3 pb-2">
+                    <div className="mb-3">  
+                        <div className="d-flex justify-content-between align-items-center mb-2" style={{ borderBottom: '1px dashed #e9ecef', paddingBottom: '4px' }}>
+                          <span className="text-uppercase fw-bold" style={{ color: '#6f42c1', fontSize: '0.7rem', letterSpacing: '0.5px' }}>
+                            Name
+                          </span>
+                          <span className="fw-bold text-dark text-end text-truncate" style={{ maxWidth: '65%', fontSize: '0.9rem' }} title={item.name}>
+                            {item.name}
+                          </span>
+                        </div>
+
+
+                        <div className="d-flex justify-content-between align-items-center mb-2" style={{ borderBottom: '1px dashed #e9ecef', paddingBottom: '4px' }}>
+                          <span className="text-uppercase fw-bold" style={{ color: '#6f42c1', fontSize: '0.7rem', letterSpacing: '0.5px' }}>
+                            Description
+                          </span>
+                          <span className="fw-bold text-muted text-end text-truncate" style={{ maxWidth: '65%', fontSize: '0.85rem' }} title={item.description}>
+                            {item.description}
+                          </span>
+                        </div>
+
+                        {item.itemType && (
+                          <div className="d-flex justify-content-between align-items-center mb-2" style={{ borderBottom: '1px dashed #e9ecef', paddingBottom: '4px' }}>
+                            <span className="text-uppercase fw-bold" style={{ color: '#6f42c1', fontSize: '0.7rem', letterSpacing: '0.5px' }}>
+                              Type
+                            </span>
+                            <Badge bg="info" className="fw-normal" style={{ fontSize: '0.75rem', opacity: 0.9 }}>
+                              {item.type}
+                            </Badge>
                           </div>
+                        )}
+                    </div>
+                  
+                    <div className="mt-auto">
+                      <div className="d-flex justify-content-between align-items-center mb-3 p-2 bg-light rounded-3">
+                        <span className="text-muted small">Price</span>
+                        <span className="fw-bold text-primary fs-5">
+                          {ethers.utils.formatEther(item.totalPrice)} <small className="fs-6 text-dark">ETH</small>
+                        </span>
                       </div>
+                    </div>
                   </Card.Body>
                 </Card>
               </Col>

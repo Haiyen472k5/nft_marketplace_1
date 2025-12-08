@@ -5,6 +5,7 @@ import {
 } from "react-router-dom";
 import Navigation from './Navbar';
 import Home from './Home.js'
+import AdminDashboard from './AdminDashboard.js'
 import Create from './Create.js'
 import MyListedItems from './MyListedItems.js'
 import MyPurchases from './MyPurchases.js'
@@ -25,7 +26,8 @@ function App() {
   const [account, setAccount] = useState(null)
   const [nft, setNFT] = useState({})
   const [marketplace, setMarketplace] = useState({})
-
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [isIssuer, setIsIssuer] = useState(false)
   // MetaMask Login/Connect
   const web3Handler = async () => {
     try {
@@ -103,10 +105,20 @@ function App() {
 
       window.marketplace = marketplace;
       window.nft = nft;
+
+      const ADMIN_ROLE = await marketplace.ADMIN_ROLE()
+      const ISSUER_ROLE = await marketplace.ISSUER_ROLE()
+      
+      const adminCheck = await marketplace.hasRole(ADMIN_ROLE, await signer.getAddress())
+      const issuerCheck = await marketplace.hasRole(ISSUER_ROLE, await signer.getAddress())
+
+      setIsAdmin(adminCheck)
+      setIsIssuer(issuerCheck)
+
+      console.log("Is Admin:", adminCheck)
+      console.log("Is Issuer:", issuerCheck)
       
       setLoading(false);
-
-
 
       // Setup listeners after contracts are loaded
       setupEventListeners()
@@ -148,6 +160,8 @@ function App() {
             account={account}
             disconnectWallet={disconnectWallet}
             changeWallet={changeWallet}
+            isAdmin={isAdmin}
+            isIssuer={isIssuer}
           />
         </>
         <div>
@@ -162,7 +176,7 @@ function App() {
                 <Home marketplace={marketplace} nft={nft} account={account} />
               } />
               <Route path="/create" element={
-                <Create marketplace={marketplace} nft={nft} />
+                <Create marketplace={marketplace} nft={nft} account={account} />
               } />
               <Route path="/my-listed-items" element={
                 <MyListedItems marketplace={marketplace} nft={nft} account={account} />
@@ -175,6 +189,9 @@ function App() {
               } />
               <Route path="/my-sent-offers" element={
                 <MySentOffers marketplace={marketplace} nft={nft} account={account} />
+              } />
+              <Route path="/admin" element={
+                <AdminDashboard marketplace={marketplace} account={account} isAdmin={isAdmin} />
               } />
             </Routes>
           )}
