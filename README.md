@@ -20,6 +20,7 @@
 ```
 $ cd nft_marketplace
 $ npm install
+$ npm install react-qr-code
 ```
 ### 3. Boot up local development blockchain
 ```
