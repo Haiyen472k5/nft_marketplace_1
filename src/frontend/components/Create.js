@@ -2,12 +2,9 @@ import { useState, useEffect, useRef } from 'react'
 import { ethers } from "ethers"
 import { Row, Form, Button, Card, Container, Badge } from 'react-bootstrap'
 
-// 🔥 THAY TOKEN NÀY BẰNG JWT TOKEN CỦA PINATA (GIỮ NGUYÊN TỪ FILE GỐC)
 const PINATA_JWT = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySW5mb3JtYXRpb24iOnsiaWQiOiJkYzY0MmFkOC04NDRhLTQzYmYtYWQyOC1mNTFlMzU5MTA2MjEiLCJlbWFpbCI6ImdwdGNsYXVkZTY4QGdtYWlsLmNvbSIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJwaW5fcG9saWN5Ijp7InJlZ2lvbnMiOlt7ImRlc2lyZWRSZXBsaWNhdGlvbkNvdW50IjoxLCJpZCI6IkZSQTEifSx7ImRlc2lyZWRSZXBsaWNhdGlvbkNvdW50IjoxLCJpZCI6Ik5ZQzEifV0sInZlcnNpb24iOjF9LCJtZmFfZW5hYmxlZCI6ZmFsc2UsInN0YXR1cyI6IkFDVElWRSJ9LCJhdXRoZW50aWNhdGlvblR5cGUiOiJzY29wZWRLZXkiLCJzY29wZWRLZXlLZXkiOiIwM2I5ZmQwOWUwNDRhOWVkYmJhMyIsInNjb3BlZEtleVNlY3JldCI6IjU0OGNiYzFmNDg2NjFkODVlYWMwYTgzMzM2YmUxOTcyOWEyMjczNjFiY2RhNjhiODMxYzVkOTdmODEzYzkyZWEiLCJleHAiOjE3OTYzNjA2NzB9.deCZcO3aD371Yr-3LBKbkm-kJ1uiDw6uwk6_hGM_tjo";
 
-// ----------------------
-// UPLOAD IMAGE TO PINATA
-// ----------------------
+// uploading to pinanta
 const uploadImageToPinata = async (file) => {
   const url = `https://api.pinata.cloud/pinning/pinFileToIPFS`;
 
@@ -26,9 +23,7 @@ const uploadImageToPinata = async (file) => {
   return `https://gateway.pinata.cloud/ipfs/${data.IpfsHash}`;
 };
 
-// ----------------------
-// UPLOAD METADATA (JSON)
-// ----------------------
+//upload metadata
 const uploadMetadataToPinata = async (metadata) => {
   const url = `https://api.pinata.cloud/pinning/pinJSONToIPFS`;
 
@@ -54,7 +49,7 @@ const Create = ({ marketplace, nft, account }) => {
   const [price, setPrice] = useState(null)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
-  const [itemType, setItemType] = useState('0') // 0=TICKET, 1=VOUCHER, 2=MEMBERSHIP
+  const [itemType, setItemType] = useState('0') 
 
   
   const fileInputRef = useRef(null)
@@ -103,42 +98,37 @@ const Create = ({ marketplace, nft, account }) => {
     }
   }
 
-  
-  // State UI mới để tăng trải nghiệm người dùng
   const [uploadingImg, setUploadingImg] = useState(false)
   const [creatingNft, setCreatingNft] = useState(false)
 
-  // Upload image handler
   const uploadToIPFS = async (event) => {
     event.preventDefault()
     const file = event.target.files[0]
     if (!file) return
 
     try {
-      setUploadingImg(true) // Bắt đầu loading
+      setUploadingImg(true) 
       const url = await uploadImageToPinata(file)
       console.log("Image uploaded:", url)
       setImage(url)
-      setUploadingImg(false) // Kết thúc loading
+      setUploadingImg(false) 
     } catch (error) {
       console.log("Pinata image upload error:", error)
       setUploadingImg(false)
     }
   }
 
-  // Mint & list NFT
   const createNFT = async () => {
     if (!image || !price || !name || !description) return
 
     try {
-      setCreatingNft(true) // Bắt đầu loading button
+      setCreatingNft(true) 
 
-      // Build metadata object
       const metadata = { image, 
                         price, 
                         name, 
                         description, 
-                        itemType: ['TICKET', 'VOUCHER', 'MEMBERSHIP'][itemType],
+                        itemType: ['TICKET', 'VOUCHER'][itemType],
                         issuer: issuerInfo?.name || account
                       }
 
@@ -165,9 +155,8 @@ const Create = ({ marketplace, nft, account }) => {
       await txList.wait()
 
       setCreatingNft(false)
-      alert("NFT created & listed successfully!")
-      
-      // Optional: Reset form or redirect (Logic giữ nguyên nên tôi không redirect)
+      alert("An Item created & listed successfully!")
+
       setName('')
       setPrice('')
       setDescription('')
@@ -179,9 +168,9 @@ const Create = ({ marketplace, nft, account }) => {
       }
 
     } catch (error) {
-      console.log("Create NFT error:", error)
+      console.log("Create an item error:", error)
       setCreatingNft(false)
-      alert("Error creating NFT! Check console.")
+      alert("Error creating item! Check console.")
     }
   }
 
@@ -289,9 +278,8 @@ const Create = ({ marketplace, nft, account }) => {
                       value={itemType}
                       onChange={(e) => setItemType(e.target.value)}
                     >
-                      <option value="0">🎫 Ticket (Event-based)</option>
-                      <option value="1">🎁 Voucher (Redeemable)</option>
-                      <option value="2">👑 Membership (Long-term)</option>
+                      <option value="0">🎫 Ticket </option>
+                      <option value="1">🎁 Voucher </option>
                     </Form.Select>
                   </Form.Group>
 

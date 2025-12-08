@@ -26,7 +26,7 @@ contract Marketplace is ReentrancyGuard, AccessControl {
         address payable issuer;
         address payable currentOwner;
         bool sold;
-        bool cancelled; // [FIX] Sửa chính tả từ canceled -> cancelled (2 chữ l)
+        bool cancelled;
         bool isUsed;
         ItemType itemType;
     }
@@ -50,8 +50,7 @@ contract Marketplace is ReentrancyGuard, AccessControl {
 
     enum ItemType {
         TICKET,
-        VOUCHER,
-        MEMBERSHIP
+        VOUCHER
     }
 
     // MAPPINGS

@@ -12,7 +12,6 @@ const Home = ({ marketplace, nft, account }) => {
   const [offerPrice, setOfferPrice] = useState('')
 
   const loadMarketplaceItems = async () => {
-    // Load all unsold items
     try {
       setError(null)
 
@@ -25,16 +24,13 @@ const Home = ({ marketplace, nft, account }) => {
       for (let i = 1; i <= itemCount; i++) {
         const item = await marketplace.items(i)
         if (!item.sold) {
-          // get uri url from nft contract
           const uri = await nft.tokenURI(item.tokenId)
-          // use uri to fetch the nft metadata stored on ipfs 
           const response = await fetch(uri)
           const metadata = await response.json()
-          // get total price of item (item price + fee)
           const totalPrice = await marketplace.getTotalPrice(item.itemId)
           
           const isOwnItem = account && item.currentOwner.toLowerCase() === account.toLowerCase()
-          // Add item to items array
+
           items.push({
             totalPrice,
             price: item.price,
@@ -58,7 +54,7 @@ const Home = ({ marketplace, nft, account }) => {
       } else if (error.message.includes("not initialized")) {
         setError("Please connect your wallet to continue.")
       } else {
-        setError("Unable to load NFT listings. Please try again later.")
+        setError("Unable to load ticket/voucher listings. Please try again later.")
       }
     }
   }
@@ -71,7 +67,7 @@ const Home = ({ marketplace, nft, account }) => {
       }
 
       const confirmed = window.confirm(
-        'Do you want to buy "${item.name}" for ${ethers.utils.formatEther(item.totalPrice)} ETH?'
+        `Do you want to buy "${item.name}" for ${ethers.utils.formatEther(item.totalPrice)} ETH?`
       );
 
       if (!confirmed) return;
@@ -79,7 +75,7 @@ const Home = ({ marketplace, nft, account }) => {
       const tx = await marketplace.purchaseItem(item.itemId, { value: item.totalPrice })
       await tx.wait()
       
-      alert("Purchase successful! The NFT is now yours.");
+      alert("Purchase successful! This item is now yours.");
 
       loadMarketplaceItems()
 
@@ -92,7 +88,7 @@ const Home = ({ marketplace, nft, account }) => {
         alert("❌ Insufficient ETH in your wallet")
       } else if (error.message.includes("already sold")) {
         alert("❌ This item has already been sold")
-        loadMarketplaceItems() // Refresh list
+        loadMarketplaceItems() 
       } else {
         alert("❌ Purchase failed: " + (error.reason || error.message))
       }
@@ -321,7 +317,7 @@ const Home = ({ marketplace, nft, account }) => {
           <div className="text-center py-5">
             <div className="mb-3 text-muted" style={{ fontSize: '4rem' }}>📦</div>
             <h3 className="fw-bold text-muted">No items listed yet</h3>
-            <p className="text-secondary">Be the first to list an NFT on the marketplace!</p>
+            <p className="text-secondary">Be the first to list ticket/voucher on the marketplace!</p>
           </div>
         )}
       </Container>

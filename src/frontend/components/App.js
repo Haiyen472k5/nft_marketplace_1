@@ -29,7 +29,6 @@ function App() {
   const [isAdmin, setIsAdmin] = useState(false)
   const [isIssuer, setIsIssuer] = useState(false)
 
-  // MetaMask Login/Connect
   useEffect(() => {
     const checkWalletConnection = async () => {
       if (window.ethereum) {

@@ -9,7 +9,7 @@ const Navigation = ({ web3Handler, account, disconnectWallet, changeWallet, mark
         <Navbar expand="lg" bg="dark" variant="dark" className="py-3 shadow-sm sticky-top">
             <Container>
                 {/* BRAND LOGO & NAME */}
-                <Navbar.Brand as={Link} to="/" className="fw-bold d-flex align-items-center">
+                <Navbar.Brand as={Link} to="/home" className="fw-bold d-flex align-items-center">
                     <img src={market} width="40" height="40" className="me-2" alt="Marketplace Logo" />
                     <span style={{ 
                         background: 'linear-gradient(45deg, #4facfe 0%, #00f2fe 100%)',
