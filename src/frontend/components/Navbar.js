@@ -17,7 +17,7 @@ const Navigation = ({ web3Handler, account, disconnectWallet, changeWallet, mark
                         WebkitTextFillColor: 'transparent',
                         fontSize: '1.25rem'
                     }}>
-                        DApp NFT Marketplace
+                        Ticket/Voucher Marketplace
                     </span>
                 </Navbar.Brand>
 
