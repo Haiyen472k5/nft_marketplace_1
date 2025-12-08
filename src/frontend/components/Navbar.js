@@ -1,7 +1,5 @@
-import { useState, useEffect } from 'react'
 import { Link } from "react-router-dom"
 import { Navbar, Nav, Button, Container, Dropdown, Badge } from 'react-bootstrap'
-import { ethers } from "ethers"
 import market from './market.png'
 
 const Navigation = ({ web3Handler, account, disconnectWallet, changeWallet, marketplace, isAdmin, isIssuer }) => {

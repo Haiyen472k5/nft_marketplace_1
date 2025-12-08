@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react'
 import { ethers } from "ethers"
-
-import { Row, Col, Card, Container, Badge, Button, Spinner } from 'react-bootstrap'
+import { Row, Col, Card, Container, Badge, Button, Spinner, Modal } from 'react-bootstrap'
 import { Link } from "react-router-dom"
+import QRCode from "react-qr-code"
 
 export default function MyPurchases({ marketplace, nft, account }) {
   const [loading, setLoading] = useState(true)
   const [purchases, setPurchases] = useState([])
+  const [selectedTicket, setSelectedTicket] = useState(null)
   
   const loadPurchasedItems = async () => {
     // Fetch purchased items from marketplace by quering Offered events with the buyer set as the user
@@ -30,6 +31,7 @@ export default function MyPurchases({ marketplace, nft, account }) {
         totalPrice,
         price: i.price,
         itemId: i.itemId,
+        tokenId: i.tokenId,
         name: metadata.name,
         description: metadata.description,
         type: metadata.itemType,
@@ -150,12 +152,54 @@ export default function MyPurchases({ marketplace, nft, account }) {
                         </span>
                       </div>
                     </div>
+                    <div className="mt-auto">
+                        {/* NÚT SHOW QR CODE - CHỈ CÓ Ở TRANG NÀY */}
+                        <Button 
+                            variant="dark" 
+                            className="w-100 mb-2" 
+                            onClick={() => setSelectedTicket(item)}
+                        >
+                            <i className="bi bi-qr-code"></i> Check-in QR
+                        </Button>
+                    </div>
                   </Card.Body>
                 </Card>
               </Col>
             ))}
           </Row>
       </Container>
+
+      {/* MODAL HIỂN THỊ QR CODE BẢO MẬT */}
+      <Modal show={!!selectedTicket} onHide={() => setSelectedTicket(null)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>🎟 Ticket Entry Code</Modal.Title>
+        </Modal.Header>
+        <Modal.Body className="text-center bg-white">
+          {selectedTicket && (
+            <>
+              <h5 className="mb-3">{selectedTicket.name}</h5>
+              <div className="p-4 border d-inline-block rounded bg-light">
+                {/* QR CODE ĐƯỢC TẠO TỰ ĐỘNG */}
+                <QRCode 
+                  value={JSON.stringify({ 
+                    tokenId: selectedTicket.tokenId.toString(), 
+                    owner: account 
+                  })} 
+                  size={200} 
+                  level="H"
+                />
+              </div>
+              <p className="mt-3 text-muted small">
+                Token ID: #{selectedTicket.tokenId.toString()} <br/>
+                Show this code to the event staff.
+              </p>
+              <div className="alert alert-warning small mt-2">
+                <i className="bi bi-shield-lock"></i> Do not share this QR with others.
+              </div>
+            </>
+          )}
+        </Modal.Body>
+      </Modal>
     </div>
   );
 }

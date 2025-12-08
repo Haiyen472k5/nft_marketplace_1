@@ -29,9 +29,6 @@ contract Marketplace is ReentrancyGuard, AccessControl {
         bool cancelled; // [FIX] Sửa chính tả từ canceled -> cancelled (2 chữ l)
         bool isUsed;
         ItemType itemType;
-        uint expiryDate;
-        uint maxResales;
-        uint resaleCount;
     }
 
     struct Offer {
@@ -76,8 +73,7 @@ contract Marketplace is ReentrancyGuard, AccessControl {
         uint tokenId, // [FIX] Thêm tokenId vào đây để khớp với lệnh emit (7 tham số)
         uint price,
         address indexed issuer,
-        ItemType itemType,
-        uint expiryDate
+        ItemType itemType
     );
 
     event ItemSold(
@@ -86,8 +82,7 @@ contract Marketplace is ReentrancyGuard, AccessControl {
         uint tokenId,
         uint price,
         address indexed issuer,
-        address indexed buyer,
-        bool isResale
+        address indexed buyer
     );
 
 
@@ -115,12 +110,6 @@ contract Marketplace is ReentrancyGuard, AccessControl {
 
     modifier itemExists(uint _itemId) {
         require(_itemId > 0 && _itemId <= itemCount, "Item doesn't exist");
-        _;
-    }
-
-    modifier itemNotExpired(uint _itemId) {
-        Item storage item = items[_itemId];
-        require(item.expiryDate == 0 || block.timestamp < item.expiryDate, "Item has expired");
         _;
     }
 
@@ -195,12 +184,10 @@ contract Marketplace is ReentrancyGuard, AccessControl {
         IERC721 _nft,
         uint _tokenId,
         uint _price,
-        ItemType _itemType,
-        uint _expiryDate,
-        uint _maxResales
+        ItemType _itemType
     ) external onlyIssuer whenNotPaused nonReentrant {
         require(_price > 0, "Price must be greater than zero");
-        require(_expiryDate == 0 || _expiryDate > block.timestamp, "Invalid expiry date");
+        
         
         itemCount++;
         // Transfer NFT to marketplace
@@ -216,10 +203,7 @@ contract Marketplace is ReentrancyGuard, AccessControl {
             sold: false,
             cancelled: false, // [FIX] Khớp với struct Item đã sửa
             isUsed: false,
-            itemType: _itemType,
-            expiryDate: _expiryDate,
-            maxResales: _maxResales,
-            resaleCount: 0
+            itemType: _itemType
         });
         // Update issuer stats
         issuers[msg.sender].totalItemsCreated++;
@@ -229,8 +213,7 @@ contract Marketplace is ReentrancyGuard, AccessControl {
             _tokenId,
             _price,
             msg.sender,
-            _itemType,
-            _expiryDate
+            _itemType
         );
     }
 
@@ -242,11 +225,6 @@ contract Marketplace is ReentrancyGuard, AccessControl {
         
         require(!item.isUsed, "Item already used/redeemed");
         require(!item.cancelled, "Item is cancelled");
-        
-        // Kiểm tra hạn sử dụng (Tùy logic, thường hết hạn thì không redeem được nữa)
-        if (item.expiryDate > 0) {
-            require(block.timestamp < item.expiryDate, "Item expired, cannot redeem");
-        }
 
         // Đánh dấu đã sử dụng
         item.isUsed = true;
@@ -282,7 +260,6 @@ contract Marketplace is ReentrancyGuard, AccessControl {
         payable 
         whenNotPaused
         itemExists(_itemId)
-        itemNotExpired(_itemId)
         nonReentrant 
     {
         uint _totalPrice = getTotalPrice(_itemId);
@@ -294,11 +271,6 @@ contract Marketplace is ReentrancyGuard, AccessControl {
         require(!item.isUsed, "Item already used");
         require(msg.sender != item.currentOwner, "Cannot buy your own item");
         
-        bool isResale = item.currentOwner != item.issuer;
-        if (isResale) {
-            require(item.resaleCount < item.maxResales, "Resale limit reached");
-            item.resaleCount++;
-        }
         
         // Calculate payments
         uint fee = (_totalPrice * feePercent) / 100;
@@ -310,12 +282,10 @@ contract Marketplace is ReentrancyGuard, AccessControl {
         // Update item
         item.sold = true;
         item.currentOwner = payable(msg.sender);
-        // Update issuer stats if primary sale
-        if (!isResale) {
-            issuers[item.issuer].totalSales++;
-        }
-        
-        // Transfer NFT
+
+
+        issuers[item.issuer].totalSales++;
+
         item.nft.transferFrom(address(this), msg.sender, item.tokenId);
         // Refund other offers
         _refundAllOffers(_itemId);
@@ -325,8 +295,7 @@ contract Marketplace is ReentrancyGuard, AccessControl {
             item.tokenId,
             _totalPrice,
             item.issuer,
-            msg.sender,
-            isResale
+            msg.sender
         );
     }
 
@@ -340,7 +309,6 @@ contract Marketplace is ReentrancyGuard, AccessControl {
         payable 
         whenNotPaused
         itemExists(_itemId)
-        itemNotExpired(_itemId)
         nonReentrant  
     {
         Item storage item = items[_itemId];
@@ -379,13 +347,6 @@ contract Marketplace is ReentrancyGuard, AccessControl {
         require(!offer.accepted, "Offer already accepted");
 
         require(!offer.cancelled, "Offer was cancelled");
-        require(item.expiryDate == 0 || block.timestamp < item.expiryDate, "Item expired");
-        
-        bool isResale = item.currentOwner != item.issuer;
-        if (isResale) {
-            require(item.resaleCount < item.maxResales, "Resale limit reached");
-            item.resaleCount++;
-        }
         
         // Calculate fee
         uint fee = (offer.price * feePercent) / 100;
@@ -400,10 +361,7 @@ contract Marketplace is ReentrancyGuard, AccessControl {
         item.sold = true;
         item.currentOwner = offer.buyer;
 
-       // Update issuer stats if primary sale
-        if (!isResale) {
-            issuers[item.issuer].totalSales++;
-        }
+        issuers[item.issuer].totalSales++;
 
         // Transfer NFT to buyer
         item.nft.transferFrom(address(this), offer.buyer, item.tokenId);
@@ -423,8 +381,7 @@ contract Marketplace is ReentrancyGuard, AccessControl {
             item.tokenId,
             offer.price,
             item.issuer,
-            offer.buyer,
-            isResale
+            offer.buyer
         );
     }
 

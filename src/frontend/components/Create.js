@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { ethers } from "ethers"
-import { Row, Col, Form, Button, Card, Container, Badge, InputGroup, Spinner, Image } from 'react-bootstrap'
+import { Row, Form, Button, Card, Container, Badge } from 'react-bootstrap'
 
 // 🔥 THAY TOKEN NÀY BẰNG JWT TOKEN CỦA PINATA (GIỮ NGUYÊN TỪ FILE GỐC)
 const PINATA_JWT = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySW5mb3JtYXRpb24iOnsiaWQiOiJkYzY0MmFkOC04NDRhLTQzYmYtYWQyOC1mNTFlMzU5MTA2MjEiLCJlbWFpbCI6ImdwdGNsYXVkZTY4QGdtYWlsLmNvbSIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJwaW5fcG9saWN5Ijp7InJlZ2lvbnMiOlt7ImRlc2lyZWRSZXBsaWNhdGlvbkNvdW50IjoxLCJpZCI6IkZSQTEifSx7ImRlc2lyZWRSZXBsaWNhdGlvbkNvdW50IjoxLCJpZCI6Ik5ZQzEifV0sInZlcnNpb24iOjF9LCJtZmFfZW5hYmxlZCI6ZmFsc2UsInN0YXR1cyI6IkFDVElWRSJ9LCJhdXRoZW50aWNhdGlvblR5cGUiOiJzY29wZWRLZXkiLCJzY29wZWRLZXlLZXkiOiIwM2I5ZmQwOWUwNDRhOWVkYmJhMyIsInNjb3BlZEtleVNlY3JldCI6IjU0OGNiYzFmNDg2NjFkODVlYWMwYTgzMzM2YmUxOTcyOWEyMjczNjFiY2RhNjhiODMxYzVkOTdmODEzYzkyZWEiLCJleHAiOjE3OTYzNjA2NzB9.deCZcO3aD371Yr-3LBKbkm-kJ1uiDw6uwk6_hGM_tjo";
@@ -55,8 +55,9 @@ const Create = ({ marketplace, nft, account }) => {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [itemType, setItemType] = useState('0') // 0=TICKET, 1=VOUCHER, 2=MEMBERSHIP
-  const [expiryDate, setExpiryDate] = useState('')
-  const [maxResales, setMaxResales] = useState('2')
+
+  
+  const fileInputRef = useRef(null)
 
   const ISSUER_ROLE = ethers.utils.id("ISSUER_ROLE")
 
@@ -138,8 +139,6 @@ const Create = ({ marketplace, nft, account }) => {
                         name, 
                         description, 
                         itemType: ['TICKET', 'VOUCHER', 'MEMBERSHIP'][itemType],
-                        expiryDate: expiryDate || 'No expiry',
-                        maxResales,
                         issuer: issuerInfo?.name || account
                       }
 
@@ -160,10 +159,9 @@ const Create = ({ marketplace, nft, account }) => {
 
       // Convert ETH price to wei
       const listingPrice = ethers.utils.parseEther(price.toString())
-      const expiryTimestamp = expiryDate ? Math.floor(new Date(expiryDate).getTime() / 1000) : 0
 
       // List on marketplace
-      const txList = await marketplace.createItem(nft.address, id, listingPrice, parseInt(itemType), expiryTimestamp, parseInt(maxResales))
+      const txList = await marketplace.createItem(nft.address, id, listingPrice, parseInt(itemType))
       await txList.wait()
 
       setCreatingNft(false)
@@ -175,9 +173,11 @@ const Create = ({ marketplace, nft, account }) => {
       setDescription('')
       setImage('')
       setItemType('0')
-      setExpiryDate('')
-      setMaxResales('2')
-      
+
+      if (fileInputRef.current) {
+        fileInputRef.current.value = null; 
+      }
+
     } catch (error) {
       console.log("Create NFT error:", error)
       setCreatingNft(false)
@@ -238,6 +238,7 @@ const Create = ({ marketplace, nft, account }) => {
                   <Form.Group>
                     <Form.Label>Image/Photo *</Form.Label>
                     <Form.Control
+                      ref={fileInputRef}
                       type="file"
                       required
                       name="file"
@@ -307,40 +308,6 @@ const Create = ({ marketplace, nft, account }) => {
                       placeholder="0.5" 
                       value={price || ''}
                     />
-                  </Form.Group>
-
-                  {/* Expiry Date */}
-                  <Form.Group>
-                    <Form.Label>Expiry Date (Optional)</Form.Label>
-                    <Form.Control 
-                      onChange={(e) => setExpiryDate(e.target.value)} 
-                      size="lg"
-                      type="datetime-local"
-                      value={expiryDate}
-                    />
-                    <Form.Text className="text-muted">
-                      Leave empty for no expiry. For events, set to event date/time.
-                    </Form.Text>
-                  </Form.Group>
-
-                  {/* Max Resales */}
-                  <Form.Group>
-                    <Form.Label>Maximum Resales Allowed</Form.Label>
-                    <Form.Select 
-                      size="lg"
-                      value={maxResales}
-                      onChange={(e) => setMaxResales(e.target.value)}
-                    >
-                      <option value="0">0 - Non-transferable</option>
-                      <option value="1">1 - Can resell once</option>
-                      <option value="2">2 - Can resell twice</option>
-                      <option value="3">3 - Can resell 3 times</option>
-                      <option value="5">5 - Can resell 5 times</option>
-                      <option value="999">Unlimited</option>
-                    </Form.Select>
-                    <Form.Text className="text-muted">
-                      Control how many times this can be resold to prevent scalping
-                    </Form.Text>
                   </Form.Group>
 
                   {/* Submit Button */}
