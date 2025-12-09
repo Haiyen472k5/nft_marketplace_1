@@ -11,10 +11,20 @@ export default function MySentOffers({ marketplace, nft, account }) {
   const loadMySentOffers = async () => {
     try {
       setError(null)
-
       if (!marketplace.address || !nft.address || !account) {
         throw new Error("Not connected")
       }
+
+      // 1. Lấy tất cả sự kiện OfferCancelled của user hiện tại (Load 1 lần duy nhất)
+      // Filter: OfferCancelled(offerId, itemId, buyer) -> buyer = account
+      const filter = marketplace.filters.OfferCancelled(null, null, account);
+      const events = await marketplace.queryFilter(filter);
+      
+      // Tạo một Set chứa các offerId đã được user tự tay hủy (có sự kiện)
+      const manualCancelledOfferIds = new Set();
+      events.forEach(event => {
+          manualCancelledOfferIds.add(event.args.offerId.toString());
+      });
 
       const offerCount = await marketplace.offerCount()
       let sentOffers = []
@@ -22,15 +32,32 @@ export default function MySentOffers({ marketplace, nft, account }) {
       for (let i = 1; i <= offerCount; i++) {
         const offer = await marketplace.getOffer(i)
         
-        // Only get offers made by current user that are still active
+        // Chỉ xử lý offer của mình
         if (offer.buyer.toLowerCase() === account.toLowerCase()) {
           
-          // Get item details
-          const item = await marketplace.items(offer.itemId)
+          let shouldShow = false;
 
-          const isActive = !offer.accepted && !offer.cancelled;
-          const isSoldOut = offer.cancelled && item.sold;
-          if (isActive || isSoldOut) {
+          // TH1: Offer đang Active
+          if (!offer.cancelled && !offer.accepted) {
+            shouldShow = true;
+          }
+          // TH2: Offer đã bị hủy (cancelled == true)
+          else if (offer.cancelled) {
+             // Kiểm tra xem ID này có nằm trong danh sách "Tự tay hủy" không?
+             const isManualCancel = manualCancelledOfferIds.has(offer.offerId.toString());
+
+             if (isManualCancel) {
+                 // Có sự kiện => Mình tự hủy => ẨN
+                 shouldShow = false; 
+             } else {
+                 // Không có sự kiện => Hệ thống tự hủy (do Sold) => HIỆN
+                 shouldShow = true;
+             }
+          }
+
+          if (shouldShow) {
+            // Lấy thông tin chi tiết item
+            const item = await marketplace.items(offer.itemId)
             const uri = await nft.tokenURI(item.tokenId)
             const response = await fetch(uri)
             const metadata = await response.json()
@@ -47,13 +74,14 @@ export default function MySentOffers({ marketplace, nft, account }) {
               listingPrice: listingPrice,
               listingPriceFormatted: ethers.utils.formatEther(listingPrice),
               seller: item.currentOwner,
-              sold: item.sold
+              sold: item.sold,       
+              cancelled: offer.cancelled 
             })
           }
         }
       }
 
-      setMyOffers(sentOffers)
+      setMyOffers(sentOffers.reverse())
       setLoading(false)
     } catch (error) {
       console.error("Error loading sent offers:", error)
@@ -62,111 +90,84 @@ export default function MySentOffers({ marketplace, nft, account }) {
     }
   }
 
+  // --- Hàm Cancel giữ nguyên ---
   const cancelOffer = async (offerId, itemName, offerPrice) => {
     try {
       const confirmed = window.confirm(
         `Cancel your offer of ${offerPrice} ETH for "${itemName}"?\n\nYour ETH will be refunded immediately.`
       )
-
       if (!confirmed) return
-
       const tx = await marketplace.cancelOffer(offerId)
       alert("⏳ Cancelling offer...")
       await tx.wait()
-      alert("✅ Offer cancelled! Your ETH has been refunded.")
-      
-      // Reload data
+      alert("✅ Offer cancelled!")
       loadMySentOffers()
     } catch (error) {
-      console.error("Error cancelling offer:", error)
-      if (error.code === 4001) {
-        alert("❌ Transaction cancelled")
-      } else {
-        alert("❌ Failed to cancel offer: " + (error.reason || error.message))
-      }
+      console.error("Error cancelling:", error)
+      alert("Error: " + (error.reason || error.message))
     }
   }
 
   useEffect(() => {
     loadMySentOffers()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [marketplace.address, nft.address, account])
 
-  if (loading) return (
-    <main style={{ padding: "1rem 0" }}>
-      <div className="text-center">
-        <div className="spinner-border text-primary" role="status">
-          <span className="visually-hidden">Loading...</span>
-        </div>
-        <p className="mt-2">Loading your offers...</p>
-      </div>
-    </main>
-  )
+  if (loading) return <div className="text-center py-5"><div className="spinner-border text-primary"></div></div>
+  if (error) return <Alert variant="danger" className="m-5">{error}</Alert>
 
-  if (error) return (
-    <main style={{ padding: "2rem" }}>
-      <Alert variant="danger">
-        <Alert.Heading>❌ Error</Alert.Heading>
-        <p>{error}</p>
-        <hr />
-        <Button onClick={() => window.location.reload()} variant="outline-danger">
-          🔄 Reload
-        </Button>
-      </Alert>
-    </main>
-  )
-
-return (
+  return (
     <div className="container px-4 py-5">
       <div className="d-flex align-items-center mb-4">
         <h2 className="fw-bold mb-0">📤 Offers You Made</h2>
         <Badge bg="primary" className="ms-3 fs-6 rounded-pill">
-          {myOffers.length} Active
+          {myOffers.length} Active/History
         </Badge>
       </div>
 
       {myOffers.length === 0 ? (
-        <Alert variant="info" className="text-center py-5 shadow-sm border-0 rounded-3">
-          <div className="display-1 mb-3">💸</div>
+        <Alert variant="info" className="text-center py-5 shadow-sm">
           <h4>No Active Offers</h4>
-          <p className="text-muted">You haven't made any offers yet.</p>
-          <Button as={Link} to="/home" variant="primary" size="lg" className="mt-3 px-4 rounded-pill">
-            Explore Marketplace
-          </Button>
+          <p className="text-muted">Offers you voluntarily cancel are hidden.</p>
+          <Button as={Link} to="/home" variant="primary">Explore Marketplace</Button>
         </Alert>
       ) : (
         <Row xs={1} md={2} lg={3} xl={4} className="g-4">
           {myOffers.map((offer, idx) => {
-            // Tính phần trăm chênh lệch
             const percentOfListing = (parseFloat(offer.offerPriceFormatted) / parseFloat(offer.listingPriceFormatted) * 100).toFixed(0);
             
-            // Xác định màu sắc dựa trên mức giá offer
-            let badgeColor = 'secondary';
-            if (percentOfListing >= 100) badgeColor = 'success';
-            else if (percentOfListing >= 80) badgeColor = 'info';
-            else if (percentOfListing >= 50) badgeColor = 'warning';
+            // Xác định trạng thái để hiển thị Badge
+            let overlayBadge = null;
+            
+            // Nếu đã bị hủy (mà vẫn được hiển thị) -> Chắc chắn là do hệ thống hủy (Sold out)
+            // Hoặc item.sold = true
+            if (offer.cancelled || offer.sold) {
+                overlayBadge = (
+                  <div className="position-absolute w-100 h-100 d-flex align-items-center justify-content-center" 
+                       style={{background: 'rgba(0,0,0,0.6)', zIndex: 5}}>
+                     <span className="badge bg-secondary fs-5 px-3 py-2 shadow border">
+                        {offer.sold ? "ITEM SOLD" : "OFFER EXPIRED"}
+                     </span>
+                  </div>
+                )
+            }
 
             return (
               <Col key={idx}>
-                <Card className="h-100 nft-card">
-                  {/* --- PHẦN HÌNH ẢNH --- */}
-                  <div className="nft-image-container">
-                    {offer.sold && (
-                      <div className="position-absolute w-100 h-100 d-flex align-items-center justify-content-center" 
-                           style={{background: 'rgba(0,0,0,0.5)', zIndex: 5}}>
-                        <span className="badge bg-danger fs-5 px-3 py-2 shadow">SOLD OUT</span>
-                      </div>
-                    )}
+                <Card className="h-100 nft-card shadow-sm border-0">
+                  <div className="nft-image-container position-relative" style={{overflow: 'hidden', borderRadius: '12px 12px 0 0'}}>
+                    {overlayBadge}
                     
                     <img 
                       src={offer.image} 
                       alt={offer.name}
-                      className="nft-image"
-                      style={{ filter: offer.sold ? 'grayscale(100%)' : 'none' }}
+                      style={{ 
+                        width: '100%', 
+                        height: '220px', 
+                        objectFit: 'cover',
+                        filter: (offer.cancelled || offer.sold) ? 'grayscale(100%)' : 'none' 
+                      }}
                     />
-                    
-                    {/* Badge % Listing Price */}
-                    <span className={`status-badge bg-${badgeColor} text-white`}>
+                     <span className="position-absolute top-0 end-0 badge bg-info m-2">
                       {percentOfListing}% of Listing
                     </span>
                   </div>
@@ -178,62 +179,51 @@ return (
                       </Card.Title>
                       <small className="text-muted">#{offer.itemId}</small>
                     </div>
-                    
-                    <Card.Text className="text-muted small text-truncate mb-3">
-                      {offer.description || "No description available"}
+
+                    <Card.Text className="d-flex justify-content-between align-items-start mb-2">
+                      Description: {offer.description || "No description available"}
                     </Card.Text>
 
-                    {/* --- SO SÁNH GIÁ (GRID) --- */}
                     <div className="row g-2 mb-3">
                       <div className="col-6">
-                        <div className="price-box">
-                          <div className="offer-label">Listing Price</div>
-                          <div className="price-value text-muted">
-                            {Number(offer.listingPriceFormatted).toFixed(3)} <small>ETH</small>
-                          </div>
+                        <div className="p-2 bg-light rounded text-center">
+                            <small className="d-block text-muted">Listing</small>
+                            <span className="fw-bold">{Number(offer.listingPriceFormatted).toFixed(3)}</span>
                         </div>
                       </div>
                       <div className="col-6">
-                        <div className="price-box border border-primary border-opacity-25 bg-primary bg-opacity-10">
-                          <div className="offer-label text-primary">Your Offer</div>
-                          <div className="price-value highlight">
-                            {Number(offer.offerPriceFormatted).toFixed(3)} <small>ETH</small>
-                          </div>
+                        <div className="p-2 bg-primary bg-opacity-10 border border-primary border-opacity-25 rounded text-center">
+                            <small className="d-block text-primary">Your Offer</small>
+                            <span className="fw-bold text-dark">{Number(offer.offerPriceFormatted).toFixed(3)}</span>
                         </div>
                       </div>
                     </div>
 
-                    <div className="mt-auto">
-                      {offer.sold ? (
-                        <Button variant="secondary" disabled className="w-100 rounded-pill">
-                          Item Sold
-                        </Button>
-                      ) : (
-                        <div className="d-grid gap-2">
-                          <Button 
-                            variant="outline-danger" 
-                            className="rounded-pill border-2 fw-bold"
-                            onClick={() => cancelOffer(offer.offerId, offer.name, offer.offerPriceFormatted)}
-                          >
-                            ❌ Cancel Offer
-                          </Button>
-                          <small className="text-center text-muted fst-italic" style={{fontSize: '0.75rem'}}>
-                            Locked: {offer.offerPriceFormatted} ETH
-                          </small>
-                        </div>
-                      )}
-                    </div>
-                  </Card.Body>
-                  
-                  {/* Seller Info Footer */}
-                  <Card.Footer className="bg-white border-top-0 pt-0 pb-3">
-                     <div className="d-flex align-items-center justify-content-center p-2 rounded bg-light">
+                    <Card.Footer className="bg-white border-top-0 pt-0 pb-3">
+                      <div className="d-flex align-items-center justify-content-center p-2 rounded bg-light">
                         <small className="text-muted me-2">Seller:</small>
                         <small className="font-monospace text-dark fw-bold">
                           {offer.seller.slice(0, 6)}...{offer.seller.slice(-4)}
                         </small>
-                     </div>
-                  </Card.Footer>
+                      </div>
+                    </Card.Footer>
+
+                    <div className="mt-auto">
+                      {(offer.cancelled || offer.sold) ? (
+                        <Button variant="secondary" disabled className="w-100">
+                           🚫 Closed
+                        </Button>
+                      ) : (
+                        <Button 
+                          variant="outline-danger" 
+                          className="w-100"
+                          onClick={() => cancelOffer(offer.offerId, offer.name, offer.offerPriceFormatted)}
+                        >
+                          Cancel Offer
+                        </Button>
+                      )}
+                    </div>
+                  </Card.Body>
                 </Card>
               </Col>
             )
